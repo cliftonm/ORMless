@@ -1,0 +1,986 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>ORM-less CRUD Operations with Au</title>
+</head>
+
+<body>
+
+<p>ORM-less CRUD Operations with Audit using Dapper</p>
+<h2>Introduction</h2>
+<p>Much of the time, I do not need the complexities of an Object Relational 
+Mapping (ORM) because I'm simply manipulating tables without business rules and 
+if they have relationships, I expect the API caller to provide the correct 
+foreign key ID's.&nbsp; Nor do I usually provide API's to manipulate complex 
+parent-child models.&nbsp; </p>
+<p>Unfortunately, what I see all to often done in back-end programming is:</p>
+<ol>
+	<li>Create a C# model that models the database table.</li>
+	<li>Create CRUD endpoints for each table.</li>
+	<li>Deserialize the JSON into the C# model.</li>
+	<li>Use Entity Framework to insert the record into the database.</li>
+	<li>Even more complicated:<ol>
+		<li>For records that are soft-deleted, read the record with EF, update 
+		the Deleted flag, the update the record using EF.</li>
+		<li>For records being updated, read the record with EF, update all the 
+		properties (usually using a mapper tool), then update the record using 
+		EF.</li>
+	</ol>
+	</li>
+	<li>And lastly, if we're creating an audit record of create/update/delete 
+	operations, the programmer has to remember to call the audit service with 
+	the information to record the create/update/delete operation.</li>
+</ol>
+<p><img border="0" src="whywhywhy.png" width="238" height="212"></p>
+<p>Ugh.&nbsp; Reams of code to basically do the same thing a thousand times.&nbsp; 
+And tools like <a href="https://swagger.io/tools/swagger-codegen/">Swagger 
+Codegen</a> propagate the mess by generating the CRUD (no pun intended) back-end 
+API services resulting in unique but very similar implementations for each 
+table.&nbsp; </p>
+<h3>My Solution</h3>
+<p>Using Dapper and very judicious use of Entity Framework, any CRUD operation 
+on any table can be generalized to a simple set of API endpoints in a single 
+Entity controller.&nbsp; Furthermore, the backing table service implements the 
+create/update/delete auditing very easily.&nbsp; This is a code once and forget 
+set of controllers and services.</p>
+<p>I will discuss the implementation using:</p>
+<ul>
+	<li>The controller and services as plugins as described in my article:
+	<a href="https://www.codeproject.com/Articles/5321450/ASP-NET-Core-Web-API-Plugin-Controllers-and-Servic">
+	ASP.NET Core Web API: Plugin Controllers and Services</a>.</li>
+	<li><a href="https://dapper-tutorial.net/dapper">Dapper</a> as the micro-ORM 
+	but not really used as an ORM.</li>
+	<li><a href="https://fluentmigrator.github.io/">FluentMigrator</a> to set up 
+	a test database.</li>
+	<li><a href="https://fluentassertions.com/">FluentAssertions</a> for the 
+	integration tests.</li>
+	<li>And integration tests as described in my article:
+	<a href="https://www.codeproject.com/Articles/5303342/Fluent-Web-API-Integration-Testing">
+	Fluent Web API Integration Testing</a></li>
+</ul>
+<h3>Before Running the Application</h3>
+<p>Edit the appsettings.json for the correct database connection strings and 
+plugin paths.&nbsp; The configuration in the download looks like this:</p>
+<pre>"UseDatabase": "DefaultConnection",
+
+"ConnectionStrings": {
+"DefaultConnection": "Server=localhost;Database=DMS;Integrated Security=True;",
+"MasterConnection": "Server=localhost;Database=master;Integrated Security=True;"
+},
+
+"Plugins": [
+  { "Path": "C:\\projects\\Personal\\PluginNetCoreDemo\\TableService\\bin\\Debug\\netcoreapp3.1\\TableService.dll" },
+  { "Path": "C:\\projects\\Personal\\PluginNetCoreDemo\\MigratorService\\bin\\Debug\\netcoreapp3.1\\MigratorService.dll" },
+  { "Path": "C:\\projects\\Personal\\PluginNetCoreDemo\\AuditService\\bin\\Debug\\netcoreapp3.1\\AuditService.dll" },
+  { "Path": "C:\\projects\\Personal\\PluginNetCoreDemo\\DatabaseService\\bin\\Debug\\netcoreapp3.1\\DatabaseService.dll" }
+]</pre>
+<p>This is most likely not correct for your local machine.&nbsp; The database &quot;DMS&quot; 
+(this is related to another article that I haven't published yet) will be 
+created for you.</p>
+<h2>Architecture</h2>
+<p><img border="0" src="architecture.png" width="650" height="585"></p>
+<p>The above diagram illustrates:</p>
+<ol>
+	<li>We have four plugins:<ol>
+		<li>Audit Services</li>
+		<li>Table Services and a controller</li>
+		<li>Database Services</li>
+		<li>Migrator Service and a controller</li>
+	</ol>
+	</li>
+	<li>The migrations in Migrations.dll</li>
+	<li>Various package references</li>
+	<li>A separate project for integration tests</li>
+</ol>
+<p>The projects for must be organized as siblings to the web API application, 
+otherwise Visual Studio gets its brains scrambled trying to figure out project 
+references and dependencies:</p>
+<p><img border="0" src="folders.png" width="142" height="247"></p>
+<p>Note that the service configuration does the basic setup of services <i>
+except you don't see any of the services explicitly added</i> as they are 
+plugins.</p>
+<pre>public void ConfigureServices(IServiceCollection services)
+{
+  services.AddControllers()
+    .AddNewtonsoftJson(options =&gt; options.SerializerSettings.Formatting = Formatting.Indented);
+
+  services.AddSwaggerGen(c =&gt;
+  {
+    var xmlFile = $&quot;{Assembly.GetExecutingAssembly().GetName().Name}.xml&quot;;
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+  });
+
+  var connection = Configuration.GetConnectionString(AppSettings.UseDatabase);
+  services.AddDbContext&lt;IAppDbContext, AppDbContext&gt;(options =&gt; options.UseSqlServer(connection));
+
+  services
+    .AddAuthentication(&quot;tokenAuth&quot;)
+    .AddScheme&lt;TokenAuthenticationSchemeOptions, AuthenticationService&gt;(&quot;tokenAuth&quot;, ops =&gt; { });
+
+  services.AddSingleton&lt;IApplicationService, ApplicationService&gt;();
+
+  services.LoadPlugins(Configuration);
+}</pre>
+<h2>Migrations and the Migrator Service</h2>
+<p>Starting with something simple, the Migrator Service controller implements 
+two endpoints:</p>
+<ol>
+	<li>Get the VersionInfo records</li>
+	<li>Migrate Up</li>
+</ol>
+<pre>using System.Linq;
+
+// if we add [Authorize] tags.
+// using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Clifton.Controllers
+{
+  [ApiController]
+  [Route(&quot;[controller]&quot;)]
+  public class MigratorController : ControllerBase
+  {
+    private readonly IMigratorService ms;
+    private readonly IAppDbContext context;
+
+    public MigratorController(IMigratorService ms, IAppDbContext context)
+    {
+      this.ms = ms;
+      this.context = context;
+    }
+
+    [HttpGet(&quot;VersionInfo&quot;)]
+    public ActionResult VersionInfo()
+    {
+      var recs = context.VersionInfo.OrderByDescending(v =&gt; v.Version);
+
+      return Ok(recs);
+    }
+
+    [HttpGet(&quot;MigrateUp&quot;)]
+    public ActionResult MigrateUp()
+    {
+      var resp = ms.MigrateUp();
+
+      return Ok(resp);
+    }
+  }
+}</pre>
+<p>OMG - the <code>VersionInfo</code> endpoint uses Entity Framework and therefore needs a model!</p>
+<pre>using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace Models
+{
+  public class VersionInfo
+  {
+    [Key]
+    public long Version { get; set; }
+    public DateTime AppliedOn { get; set; }
+    public string Description { get; set; }
+  }
+}</pre>
+<p>The Migrator Service:</p>
+<ul>
+	<li>Create the database if it doesn't exist.</li>
+<li>Redirects FluentMigrator's console output to a <code>StringBuilder</code>.</li>
+	<li>Performs the &quot;up&quot; migration.</li>
+</ul>
+<pre>using System;
+using System.Data.SqlClient;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+using Microsoft.Extensions.Configuration;
+
+using Dapper;
+using FluentMigrator.Runner;
+
+using Interfaces;
+using Lib;
+
+namespace Clifton.Services
+{
+  // Basic docs on how to this are here:
+  // https://fluentmigrator.github.io/articles/quickstart.html?tabs=runner-in-process
+  public class MigratorService : IMigratorService
+  {
+    private IMigrationRunner runner;
+    private IConfiguration cfg;
+
+    public MigratorService(IMigrationRunner runner, IConfiguration cfg)
+    {
+      this.runner = runner;
+      this.cfg = cfg;
+    }
+
+    public string MigrateUp()
+    {
+      EnsureDatabase();
+      var saved = Console.Out;
+      var sb = new StringBuilder();
+      var tw = new StringWriter(sb);
+      Console.SetOut(tw);
+
+      runner.MigrateUp();
+      tw.Close();
+
+      // Restore the default console out.
+      // Simpler: https://stackoverflow.com/a/26095640
+      Console.SetOut(saved);
+
+      var errs = sb.ToString();
+      var result = String.IsNullOrEmpty(errs) ? &quot;Success&quot; : errs;
+
+      return result;
+    }
+
+    public void EnsureDatabase()
+    {
+      var cs = cfg.GetConnectionString(AppSettings.Settings.UseDatabase);
+      var dbName = cs.RightOf(&quot;Database=&quot;).LeftOf(&quot;;&quot;);
+      var master = cfg.GetConnectionString(&quot;MasterConnection&quot;);
+
+      var parameters = new DynamicParameters();
+      parameters.Add(&quot;name&quot;, dbName);
+      using var connection = new SqlConnection(master);
+      var records = connection.Query(&quot;SELECT name FROM sys.databases WHERE name = @name&quot;, parameters);
+
+      if (!records.Any())
+      {
+        connection.Execute($&quot;CREATE DATABASE [{dbName}]&quot;);
+      }
+    }
+  }
+}
+</pre>
+<h3>Before Running Migrations</h3>
+<p>When Visual Studio builds the project, it will provision IIS.&nbsp; The app 
+pool, in this is <code>Demo AppPool</code>, must be given permissions in SQL 
+Server under Security =&gt; Logins</p>
+<p><img border="0" src="logins.png" width="186" height="25"></p>
+<p><img border="0" src="serverroles.png" width="111" height="166"></p>
+<p>Note that the permissions above are probably too permissive.</p>
+<h3>Running Migrations</h3>
+<p>You can run the migrations from the browser using: <code>http://localhost/Demo/migrator/migrateup</code> and you should see:</p>
+<p><img border="0" src="migrator1.png" width="423" height="73"></p>
+<p>Inspect FluentMigrator's <code>VersionInfo</code> table with: <code>http://localhost/Demo/migrator/versionInfo</code></p>
+<p>You should see:</p>
+<p><img border="0" src="migrator2.png" width="437" height="160"></p>
+<h3>The Migration Library</h3>
+<p>I have one migration which looks like this using FluentMigrator's syntax:</p>
+<pre>using FluentMigrator;
+
+namespace DMS.Migrations
+{
+  [Migration(202201011201)]
+  public class _202201011201_CreateTables : Migration
+  {
+    public override void Up()
+    {
+      Create.Table(&quot;Test&quot;)
+        .WithColumn(&quot;ID&quot;).AsInt32().PrimaryKey().Identity().NotNullable()
+        .WithColumn(&quot;IntField&quot;).AsInt32().Nullable()
+        .WithColumn(&quot;StringField&quot;).AsString().Nullable()
+        .WithColumn(&quot;DateField&quot;).AsDate().Nullable()
+        .WithColumn(&quot;DateTimeField&quot;).AsDateTime().Nullable()
+        .WithColumn(&quot;TimeField&quot;).AsTime().Nullable()
+        .WithColumn(&quot;BitField&quot;).AsBoolean().Nullable()
+        .WithColumn(&quot;Deleted&quot;).AsBoolean().NotNullable();
+
+      Create.Table(&quot;Audit&quot;)
+        .WithColumn(&quot;ID&quot;).AsInt32().PrimaryKey().Identity().NotNullable()
+        .WithColumn(&quot;Entity&quot;).AsString().NotNullable()
+        .WithColumn(&quot;EntityId&quot;).AsInt32().NotNullable()
+        .WithColumn(&quot;RecordBefore&quot;).AsString(int.MaxValue).Nullable()
+        .WithColumn(&quot;RecordAfter&quot;).AsString(int.MaxValue).Nullable()
+        .WithColumn(&quot;Action&quot;).AsString().NotNullable()
+        .WithColumn(&quot;ActionBy&quot;).AsString().NotNullable()
+        .WithColumn(&quot;ActionDate&quot;).AsDateTime().NotNullable().WithDefault(SystemMethods.CurrentDateTime)
+        .WithColumn(&quot;Deleted&quot;).AsBoolean().NotNullable();
+    }
+
+    public override void Down()
+    {
+    }
+  }
+}</pre>
+<p>To help me organize migrations in a time-linear fashion, the best practice is 
+to prepend the migration file with a date/time stamp in the format <code>yyyymmDDhhmm</code> 
+followed by a descriptive name for the migration.</p>
+<p>The above migration creates two tables:</p>
+<ol>
+	<li>A <code>Test</code> table</li>
+	<li>An <code>Audit</code> table</li>
+</ol>
+<p>The <code>Test</code> table is used for testing the Table Service and the <code>Audit</code> table is 
+for tracking create / update / delete changes to tables (entities.)&nbsp; We'll 
+see how this all works when looking at the other services.</p>
+<h2>The Database Service</h2>
+<p>This service has no controller.&nbsp; I decided to create this service so 
+that it can be extended at some point to do support transactional operations.&nbsp; 
+The service is rather simplistic at the moment since none of the operations in 
+the article require transactions.&nbsp; The purpose of this service is to return 
+a <code>SqlConnection</code> for use with Dapper.&nbsp; Note that mixing Entity 
+Framework and Dapper calls in a transaction is not possible because they would 
+be two separate connection instances.</p>
+<pre>using System.Data.SqlClient;
+
+using Microsoft.Extensions.Configuration;
+
+using Interfaces;
+using Lib;
+
+namespace Clifton.Services
+{
+  public class DatabaseService : IDatabaseService
+  {
+    private readonly IConfiguration cfg;
+
+    public DatabaseService(IConfiguration cfg)
+    {
+      this.cfg = cfg;
+    }
+
+    public SqlConnection GetSqlConnection()
+    {
+      var cs = cfg.GetConnectionString(AppSettings.Settings.UseDatabase);
+      var conn = new SqlConnection(cs);
+
+      return conn;
+    }
+
+    // TODO:
+    // https://docs.microsoft.com/en-us/ef/core/saving/transactions
+    // conn.BeginTransaction();
+  }
+}</pre>
+<h3>The Audit Service</h3>
+<p>The Audit Service implements only a service at the moment.&nbsp; It may be 
+that at some point we will have a controller to the operations performed on an 
+entity, the changes to that entity, etc.&nbsp; For the moment, I just wanted to 
+implement logging the action with the &quot;before&quot; and &quot;after&quot; records.&nbsp; I 
+don't even log who made the change!&nbsp; Earlier I stated that mixing Dapper 
+and Entity Framework transactions in a single transactional connection is not 
+possible, so here I'm basically violating my own rule.&nbsp; But honestly, I 
+don't really care that much because if the Dapper transaction fails, the audit 
+transaction will never be created, as we'll see later.&nbsp; In fact, the audit 
+transaction could be performed asynchronously so as not to delay the response to 
+the client.</p>
+<p>This service uses Entity Framework because it's so much easier to insert 
+records with EF than with Dapper, which would require the insert SQL.&nbsp; 
+Therefore we need a model:</p>
+<pre>using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace Models
+{
+  public class Audit
+  {
+    [Key]
+    public int ID { get; set; }
+    public string Entity { get; set; }
+    public int EntityId { get; set; }
+    public string RecordBefore { get; set; }
+    public string RecordAfter { get; set; }
+    public string Action { get; set; }
+    public string ActionBy { get; set; }
+    public DateTime ActionDate { get; set; }
+    public bool Deleted { get; set; }
+  }
+}</pre>
+<p>For the moment, the &quot;before&quot; and &quot;after&quot; records are serialized to JSON.&nbsp; 
+One can implement auditing in different ways - typically only the changes, or as 
+I've done here, the entire before/after record state.</p>
+<pre>using System;
+
+using Interfaces;
+using Models;
+
+using Record = System.Collections.Generic.IDictionary&lt;string, object&gt;;
+
+namespace Clifton.Services
+{
+  public class AuditService : IAuditService
+  {
+    private readonly IAppDbContext context;
+
+    public AuditService(IAppDbContext context)
+    {
+      this.context = context;
+    }
+
+    public void Insert(string entityName, int entityId, Record before, Record after, string action)
+    {
+      var audit = new Audit()
+      {
+        Entity = entityName,
+        EntityId = entityId,
+        RecordBefore = before.Serialize(),
+        RecordAfter = after.Serialize(),
+        Action = action,
+        ActionBy = &quot;&quot;,
+        ActionDate = DateTime.Now,
+      };
+
+      // Use EF for this.
+      context.Audit.Add(audit);
+      context.SaveChanges();
+    }
+  }
+}
+</pre>
+<h2>The Table (Entity) Service</h2>
+<p>Now we get to the meat of the matter - using Dapper to manipulate tables 
+without the Entity Framework&nbsp;ORM.&nbsp; First, we have a controller for 
+the CRUD operations on any table.&nbsp; I should point out two things right 
+away:</p>
+<ol>
+	<li>You probably don't want to support CRUD operations on every single table 
+	in the database!&nbsp; There are security issues to consider!</li>
+<li>As you will see, the table name is coded into the SQL so we have a SQL 
+injection vulnerability!&nbsp; There is a workaround for this which
+<a href="https://www.aspsnippets.com/Articles/Tip-Pass-table-name-dynamically-to-SQL-Server-query-or-stored-procedure.aspx">
+is complicated</a> but there are simpler solutions when addressing the first 
+problem. </li>
+</ol>
+<h3>The Entity Controller</h3>
+<p>The controller implements the CRUD endpoints:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+using Parameters = System.Collections.Generic.Dictionary&lt;string, object&gt;;
+
+namespace Clifton.Controllers
+{
+  [ApiController]
+  [Route(&quot;[controller]&quot;)]
+  public class EntityController : ControllerBase
+  {
+    private ITableService ts;
+
+    public EntityController(ITableService ts)
+    {
+      this.ts = ts;
+    }
+
+    // TODO: Pagination?
+    [HttpGet(&quot;{entityName}&quot;)]
+    public ActionResult GetAll(string entityName)
+    {
+      var result = ts.GetAll(entityName);
+
+      return Ok(result);
+    }
+
+    [HttpGet(&quot;{entityName}/{entityId}&quot;)]
+    public ActionResult GetById(string entityName, int entityId)
+    {
+      var result = ts.GetById(entityName, entityId);
+      var ret = result == null ? (ActionResult)NotFound() : Ok(result);
+
+      return ret;
+    }
+
+    [HttpPost(&quot;{entityName}&quot;)]
+    public ActionResult Insert(string entityName, Parameters data)
+    {
+      var result = ts.Insert(entityName, data);
+
+      return Ok(result);
+    }
+
+    [HttpPatch(&quot;{entityName}/{entityId}&quot;)]
+    public ActionResult Update(string entityName, int entityId, Parameters data)
+    {
+      var result = ts.Update(entityName, entityId, data);
+
+      return Ok(result);
+    }
+
+    // REMOVE webDAV for this to work! https://www.c-sharpcorner.com/forums/webapi-delete-405-method-not-allowed
+    // Or, if webDAV isn't configured in IIS, this will cause a failure in the web.config file:
+    // &lt;modules&gt;
+    // &lt;remove name = &quot;WebDAVModule&quot; /&gt;
+    // &lt;/ modules &gt;
+    [HttpDelete(&quot;{entityName}/{entityId}&quot;)]
+    public ActionResult SoftDelete(string entityName, int entityId)
+    {
+      ts.SoftDelete(entityName, entityId);
+
+      return NoContent();
+    }
+
+    // REMOVE webDAV for this to work! https://www.c-sharpcorner.com/forums/webapi-delete-405-method-not-allowed
+    // Or, if webDAV isn't configured in IIS, this will cause a failure in the web.config file:
+    // &lt;modules&gt;
+    // &lt;remove name = &quot;WebDAVModule&quot; /&gt;
+    // &lt;/ modules &gt;
+    [HttpDelete(&quot;{entityName}/{entityId}/Hard&quot;)]
+    public ActionResult HardDelete(string entityName, int entityId)
+    {
+      ts.HardDelete(entityName, entityId);
+
+      return NoContent();
+    }
+  }
+}</pre>
+<h3>The Table Service</h3>
+<p>Dapper works by having the programmer write the SQL for the CRUD operations.&nbsp; 
+So in most applications where you see Dapper used, you'll also see SQL 
+hard-coded in the application.&nbsp; Yuck.&nbsp; We definitely don't want this, 
+and we can't do this anyways because the Table Service works generically -- not 
+C# generics, but the definition of the word &quot;generically&quot;: &quot;In a way that 
+relates to a class or group of similar things; not specifically.&quot;&nbsp; 
+Also, for queries, Dapper returns a <code>DapperRow</code> or collection of <code>DapperRow</code> 
+instances, which is fine because it turns out that a <code>DapperRow</code> is actually 
+<code>Dictionary&lt;string, object&gt;</code> instance so it's perfect for serializing the response 
+to the client.</p>
+<p>So first we have the &quot;usings&quot;, just to get them out of the way.&nbsp; It 
+drives me nuts when people post code examples without stating what &quot;using&quot; is 
+necessary for the magic.</p>
+<pre>using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Text;
+
+using Dapper;
+
+using Interfaces;
+using Lib;
+
+using Record = System.Collections.Generic.IDictionary&lt;string, object&gt;;
+using Records = System.Collections.Generic.List&lt;System.Collections.Generic.IDictionary&lt;string, object&gt;&gt;;
+using Parameters = System.Collections.Generic.Dictionary&lt;string, object&gt;;</pre>
+<p>I alias the <code>Dictionary</code> class because it's annoying to have to type in 
+<code>List&lt;Dictionary&lt;string, object&gt;&gt;</code> or similar, and it makes the code more 
+readable.</p>
+<p>The public methods mirror the controller's CRUD endpoints:</p>
+<pre>namespace Clifton.Services
+{
+  public class TableService : ITableService
+  {
+    private readonly IDatabaseService dbSvc;
+    private readonly IAuditService auditSvc;
+
+    public TableService(IDatabaseService dbSvc, IAuditService auditSvc)
+    {
+      this.dbSvc = dbSvc;
+      this.auditSvc = auditSvc;
+    }
+
+    /// &lt;summary&gt;
+    /// Returns the DapperRow collection as a collection of IDictionary string-object pairs.
+    /// &lt;/summary&gt;
+    public Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+    {
+      var ret = Query&lt;Record&gt;(tableName, null, QueryFnc, where, joins, hasDeleted).ToList();
+
+      return ret;
+    }
+
+    public List&lt;T&gt; GetAll&lt;T&gt;(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true) where T : new()
+    {
+      var ret = Query(tableName, null, QueryFnc&lt;T&gt;, where, joins, hasDeleted).ToList();
+
+      return ret;
+    }
+
+    /// &lt;summary&gt;
+    /// Returns the DapperRow as IDictionary string-object pairs.
+    /// &lt;/summary&gt;
+    public Record GetSingle(string tableName, int recordId, Joins joins = null)
+    {
+      var ret = Query&lt;Record&gt;(tableName, recordId, QueryFnc, null, joins).SingleOrDefault();
+
+      return ret;
+    }
+
+    /// &lt;summary&gt;
+    /// Returns the DapperRow as IDictionary string-object pairs.
+    /// &lt;/summary&gt;
+    public Record GetSingle(string tableName, Conditions where)
+    {
+      var ret = Query&lt;Record&gt;(tableName, null, QueryFnc, where).SingleOrDefault();
+
+      return ret;
+    }
+
+    /// &lt;summary&gt;
+    /// Returns the DapperRow as IDictionary string-object pairs.
+    /// &lt;/summary&gt;
+    public Record GetSingle(string tableName, Conditions where, Joins joins = null)
+    {
+      var ret = Query&lt;Record&gt;(tableName, null, QueryFnc, where, joins).SingleOrDefault();
+
+      return ret;
+    }
+
+    public Record GetById(string tableName, int entityId)
+    {
+      var where = Conditions.Where().Field(Constants.ID).Is(entityId);
+      var ret = Query&lt;Record&gt;(tableName, null, QueryFnc, where).SingleOrDefault();
+
+      return ret;
+    }
+
+    public Record Insert(string tableName, Parameters parms)
+    {
+      // Returns the full record.
+      var ret = Insert(tableName, parms, QueryFnc).SingleOrDefault();
+      auditSvc.Insert(tableName, ret[Constants.ID].ToInt(), null, ret, Constants.AUDIT_INSERT);
+
+      return ret;
+    }
+
+    public Record Update(string tableName, int entityId, Parameters parms)
+    {
+      var before = GetById(tableName, entityId);
+      var ret = Update(tableName, entityId, parms, QueryFnc).SingleOrDefault();
+      auditSvc.Insert(tableName, entityId, before, ret, Constants.AUDIT_UPDATE);
+
+      return ret;
+    }
+
+    public void SoftDelete(string tableName, int entityId)
+    {
+      var before = GetById(tableName, entityId);
+      var parms = new Parameters() { { &quot;ID&quot;, entityId }, { Constants.DELETED, true } };
+      Update(tableName, entityId, parms, QueryFnc, asDelete: true).SingleOrDefault();
+      auditSvc.Insert(tableName, entityId, before, null, Constants.AUDIT_DELETE);
+    }
+
+    public void HardDelete(string tableName, int entityId)
+    {
+      var before = GetById(tableName, entityId);
+      using var conn = dbSvc.GetSqlConnection();
+      conn.Execute($&quot;delete from {tableName} where {Constants.ID} = @id&quot;, new { id = entityId });
+      auditSvc.Insert(tableName, entityId, before, null, Constants.AUDIT_DELETE);
+    }
+...</pre>
+<p>Ignore the stuff about <code>Joins</code> and <code>Conditions</code> - this is beyond the scope of 
+this article but it should be obvious what <code>var where = Conditions.Where().Field(Constants.ID).Is(entityId);</code> does.&nbsp; 
+Suffice it to say that <code>Conditions</code> lets the client specify complex search 
+criteria on an entity, and <code>Joins</code> lets the client specify complex joins across 
+tables, which can also include <code>Conditions</code>.&nbsp; If you do want to 
+read more about it, you can read my article
+<a href="https://www.codeproject.com/Articles/5299207/Adaptive-Hierarchical-Knowledge-Management-Part-II">
+Adaptive Hierarchical Knowledge Management - Part II</a>.</p>
+<p>Anyways, the meat of the matter is in the <code>private</code> functions.</p>
+<h4>Query SQL</h4>
+<p>First, we have two <code>Query</code> functions, one that is general purpose, and the 
+other that is generic if we have a backing model (which we don't, but I'm using 
+a common code library with the AHKM (see link above) that I don't want to 
+specialize just for this article.</p>
+<pre>private Records Query(string tableName, int? id, Func&lt;SqlConnection, (string sql, Parameters parms), Records&gt; query, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+{
+  using var conn = dbSvc.GetSqlConnection();
+  var qinfo = SqlSelectBuilder(tableName, id, where, joins, hasDeleted);
+  var ret = query(conn, qinfo).ToList();
+
+  return ret;
+}
+
+private List&lt;T&gt; Query&lt;T&gt;(string tableName, int? id, Func&lt;SqlConnection, (string sql, Parameters parms), IEnumerable&lt;T&gt;&gt; query, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+{
+  using var conn = dbSvc.GetSqlConnection();
+  var qinfo = SqlSelectBuilder(tableName, id, where, joins, hasDeleted);
+  var ret = query(conn, qinfo).ToList();
+
+  return ret;
+}</pre>
+<p>Notice both call <code>SqlSelectBuilder</code>:</p>
+<pre>private (string sql, Parameters parms) SqlSelectBuilder(string table, int? id, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+{
+  var sb = GetCoreSelect(table, joins, hasDeleted);
+
+  var parms = new Parameters();
+
+  if (id != null)
+  {
+    sb.Append($&quot; and {table}.{Constants.ID} = @{Constants.ID}&quot;);
+    parms.Add(Constants.ID, id.Value);
+  }
+
+  where?.AddConditions(sb, parms);
+
+  return (sb.ToString(), parms);
+}</pre>
+<p>And it in turn calls GetCoreSelect, which we'll see used later as well:</p>
+<pre>private StringBuilder GetCoreSelect(string table, Joins joins = null, bool hasDeleted = true)
+{
+  var joinFields = joins?.GetJoinFields(&quot;,&quot;) ?? &quot;&quot;;
+  var joinTables = joins?.GetJoins() ?? &quot;&quot;;
+
+  var withDeleteCheck = hasDeleted ? $&quot;where {table}.{Constants.DELETED} = 0&quot; : &quot;&quot;;
+
+  StringBuilder sb = new StringBuilder();
+  sb.Append($&quot;select {table}.* {joinFields} from {table} {joinTables} {withDeleteCheck}&quot;);
+
+  return sb;
+}</pre>
+<h4>Insert SQL</h4>
+<p>Inserting with Dapper looks like this:</p>
+<pre>private (string sql, Parameters parms) SqlInsertBuilder(string table, Parameters parms, Joins joins = null)
+{
+  if (parms.ContainsKey(Constants.ID))
+  {
+    parms.Remove(Constants.ID);
+  }
+
+  parms[Constants.DELETED] = false;
+  var cols = String.Join(&quot;, &quot;, parms.Keys.Select(k =&gt; k));
+  var vals = String.Join(&quot;, &quot;, parms.Keys.Select(k =&gt; $&quot;@{k}&quot;));
+  StringBuilder sb = new StringBuilder();
+  sb.Append($&quot;insert into {table} ({cols}) values ({vals});&quot;);
+  var query = SqlInsertSelectBuilder(table, joins: joins).sql;
+  sb.Append(query);
+
+  return (sb.ToString(), parms);
+}</pre>
+<p>There's a few things to note here.&nbsp; First, there's a call to 
+SqlInsertSelectBuilder, because we don't want to just insert the record, we want 
+to get the inserted record back.&nbsp; This will give us the ID as well as any 
+default values or computed values that were coded as constraints in the 
+database:</p>
+<pre>private (string sql, Parameters parms) SqlInsertSelectBuilder(string table, Conditions where = null, Joins joins = null)
+{
+  var sb = GetCoreSelect(table, joins);
+  sb.Append($&quot; and {table}.{Constants.ID} in (SELECT CAST(SCOPE_IDENTITY() AS INT))&quot;);
+
+  var parms = new Parameters();
+
+   return (sb.ToString(), parms);
+}</pre>
+<p>Also notice that any &quot;ID&quot; parameter is removed -- the ID is the primary key 
+(according to our rules) and we don't want Dapper inserting it as it's an 
+auto-increment field.</p>
+<p>Notice also that the <code>Deleted</code> parameter, set to false, is added for us.&nbsp; 
+I really dislike nullable fields unless the field is truly optional, and <code>Deleted</code> 
+is not in my opinion optional.</p>
+<p>Lastly, since parameters are passed in as a dictionary (a JSON object from 
+the client deserializes easily into a dictionary -- see the controller) all we 
+need to do is map the name-value pairs as parameters and create the SQL 
+statement as a join of those parameters.</p>
+<h4>Update SQL</h4>
+<p>Update is a similar process to insert:</p>
+<pre>private (string sql, Parameters parms) SqlUpdateBuilder(string table, int id, Parameters parms, bool asDelete = false)
+{
+  // Remove any ID, Deleted field -- we don't update the deleted flag here.
+  parms.Remove(Constants.ID);
+
+  if (!asDelete)
+  {
+   parms.Remove(Constants.DELETED);
+  }
+
+  var setters = String.Join(&quot;, &quot;, parms.Keys.Select(k =&gt; $&quot;{k}=@{k}&quot;));
+  StringBuilder sb = new StringBuilder();
+  sb.Append($&quot;update {table} set {setters} where {Constants.ID} = @{Constants.ID};&quot;);
+  var query = SqlSelectBuilder(table, id).sql;
+  sb.Append(query);
+
+  // Add at end, as we're not setting the ID. Here we are setting the parameter, so &quot;id&quot; is OK.
+  parms[Constants.ID] = id;
+
+  return (sb.ToString(), parms);
+}</pre>
+<p>Here there's a funky optional parameter that says, &quot;yes, I really want to 
+update the <code>Deleted</code> field&quot; which if you were paying attention and 
+reading all the code carefully, you saw here:</p>
+<pre>public void SoftDelete(string tableName, int entityId)
+{
+  var before = GetById(tableName, entityId);
+  var parms = new Parameters() { { &quot;ID&quot;, entityId }, { Constants.DELETED, true } };
+  Update(tableName, entityId, parms, QueryFnc, asDelete: true).SingleOrDefault();
+  auditSvc.Insert(tableName, entityId, before, null, Constants.AUDIT_DELETE);
+}</pre>
+<p>Oh, look at that <code>asDelete: true</code> parameter!</p>
+<h4>What is that QueryFnc?</h4>
+<p>In all the public CRUD methods, you'll see something like this:</p>
+<pre>var ret = Query(tableName, null, QueryFnc, where).SingleOrDefault();</pre>
+<p>where this magical <code>QueryFnc</code> is part of the parameters passed in to the 
+private CRUD operations.</p>
+<p>and you'll see it called similar to this:</p>
+<pre>var ret = query(conn, qinfo).ToList();</pre>
+<p>What's that all about?&nbsp; Well, I really disliked writing the same code 
+over and over, so I have two &quot;query&quot; functions that do the work::</p>
+<pre>private Records QueryFnc(SqlConnection conn, (string sql, Parameters parms) qinfo)
+{
+  try
+  {
+    var records = conn.Query(qinfo.sql, qinfo.parms).Cast&lt;Record&gt;().ToList();
+
+    return records;
+  }
+  catch (Exception ex)
+  {
+    throw new Exception($&quot;SQL Exception:{ex.Message}\r\n{qinfo.sql}&quot;);
+  }
+}
+
+private List&lt;T&gt; QueryFnc&lt;T&gt;(SqlConnection conn, (string sql, Parameters parms) qinfo)
+{
+  try
+  {
+    var records = conn.Query&lt;T&gt;(qinfo.sql, qinfo.parms).ToList();
+
+    return records;
+  }
+  catch (Exception ex)
+  {
+    throw new Exception($&quot;SQL Exception:{ex.Message}\r\n{qinfo.sql}&quot;);
+  }
+}</pre>
+<p>The point of the <code>QueryFunc</code> is to wrap the actual SQL call in a <code>try-catch</code> so I 
+can return a more intelligent error, including the SQL, and I really didn't want 
+to &quot;pollute&quot; the various method with a try-catch blocks everywhere!</p>
+<p>Note that these methods always return a collection, which in all cases except <code>GetAll</code>, 
+results in just a single record.&nbsp; One function is for returning general 
+<code>Record</code> objects, the other if we have a backing model.&nbsp; </p>
+<h2>Integration Tests</h2>
+<p>So does all this work?</p>
+<p><img border="0" src="integrationTests.png" width="257" height="308"></p>
+<p>Why yes it does!</p>
+<p>Let's look at a basic integration test.&nbsp; Here's the &quot;usings&quot; to get them 
+out of the way:</p>
+<pre>using System;
+using System.Collections.Generic;
+
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using FluentAssertions;
+
+using Clifton.IntegrationTestWorkflowEngine;
+
+using IntegrationTests.Models;
+using WorkflowTestMethods;</pre>
+<p>And here's the &quot;create entity&quot; integration test, using FluentAssertions, 
+which is great because if something fails, it will tell you both what the value 
+was and what the value &quot;should be&quot;:</p>
+<pre>
+namespace IntegrationTests
+{
+  [TestClass]
+  public class EntityCrudTests : Setup
+  {
+    public static Test testData = new Test()
+    {
+      IntField = 1,
+      StringField = &quot;test&quot;,
+      DateField = DateTime.Parse(&quot;8/19/1962&quot;),
+      DateTimeField = DateTime.Parse(&quot;3/21/1991 7:47 pm&quot;),
+      TimeField = DateTime.Parse(&quot;12:05 am&quot;),
+      BitField = true
+    };
+
+    [TestMethod]
+    public void CreateEntityTest()
+    {
+      ClearAllTables();
+
+      var wp = new WorkflowPacket(URL)
+        .Post&lt;Test&gt;(&quot;entity/test&quot;, testData)
+        .AndOk()
+        .IShouldSee&lt;Test&gt;(t =&gt; t.ID.Should().NotBe(0));
+    }
+...</pre>
+<p>I've described how this process works in my article:
+	<a href="https://www.codeproject.com/Articles/5303342/Fluent-Web-API-Integration-Testing">
+	Fluent Web API Integration Testing</a>.&nbsp; The interesting part is 
+the base <code>Setup</code> class:</p>
+<pre>using System.Data.SqlClient;
+
+using Dapper;
+
+namespace IntegrationTests
+{
+  public class Setup
+  {
+    protected string URL = &quot;http://localhost/demo&quot;;
+    private string connectionString = &quot;Server=localhost;Database=DMS;Integrated Security=True;&quot;;
+
+    public void ClearAllTables()
+    {
+      using (var conn = new SqlConnection(connectionString))
+      {
+        conn.Execute(&quot;delete from Test&quot;);
+        conn.Execute(&quot;delete from Audit&quot;);
+      }
+    }
+  }
+}</pre>
+<p>You'll want to change the URL and connection string for your local system.</p>
+<p>I'm not going to put the code here for all 11 integration tests, we'll just 
+look at one of the more interesting ones which tests that a hard delete is 
+recorded in the audit table:</p>
+<pre>[TestMethod]
+public void HardDeleteEntityTest()
+{
+  int id = -1;
+
+  ClearAllTables();
+
+  var wp = new WorkflowPacket(URL)
+    .Post&lt;Test&gt;(&quot;entity/test&quot;, testData)
+    .AndOk()
+    .Then(wp =&gt; wp.IGet&lt;Test&gt;(t =&gt; id = t.ID))
+    .Delete($&quot;entity/test/{id}/Hard&quot;)
+    .AndNoContent()
+    .Get&lt;List&lt;Audit&gt;&gt;(&quot;entity/audit&quot;)
+    .IShouldSee&lt;List&lt;Audit&gt;&gt;(r =&gt; r.Count.Should().Be(2))
+    .IShouldSee&lt;List&lt;Audit&gt;&gt;(r =&gt; r.OrderBy(q =&gt; q.ID).First().Action.Should().Be(Constants.AUDIT_INSERT))
+    .IShouldSee&lt;List&lt;Audit&gt;&gt;(r =&gt; r.OrderBy(q =&gt; q.ID).Skip(1).First().Action.Should().Be(Constants.AUDIT_DELETE));
+}</pre>
+<p>What we see here is:</p>
+<ol>
+	<li>Create the entity</li>
+	<li>Delete the entity</li>
+	<li>Get the audit table (which was cleared out)</li>
+	<li>We should have both a &quot;INSERT&quot; and a &quot;DELETE&quot; action in the audit table.</li>
+</ol>
+<p>And indeed we do, as the test passes, and we can see this in the audit table 
+in SSMS:</p>
+<pre>select Action, Entity, EntityId from Audit order by ID desc</pre>
+<p>Shows:</p>
+<p><img border="0" src="audit.png" width="1018" height="78"></p>
+<h2>Restricting Tables</h2>
+<p>&nbsp;</p>
+<h2>Conclusion</h2>
+<p>I hope you find this useful for a non-ORM general purpose way of performing 
+CRUD operations on tables, and I hope that this reduces the amount of per-table 
+controllers, models (it seems these are called POCO's - plaint old CLR objects), 
+services, and other code you end up writing or having auto-generated!&nbsp; I 
+would be very amused if there's a way to coerce Entity Framework to work in a 
+model-less way!</p>
+<p>I also hope that the various architectures and technologies I've 
+demonstrated:</p>
+<ul>
+	<li>Plug-in controllers and services</li>
+	<li>Fluent integration testing</li>
+	<li>Dapper</li>
+	<li>FluentMigrator</li>
+	<li>FluentAssertions</li>
+</ul>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>In .csproj:</p>
+<pre class="lang-xml s-code-block" style="margin-top: 0px; margin-right: 0px; margin-bottom: calc(var(--s-prose-spacing) + 0.4em); margin-left: 0px; padding: 12px; border: 0px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-variant-numeric: inherit; font-variant-east-asian: inherit; font-weight: 400; font-stretch: inherit; line-height: 1.30769; font-family: var(--ff-mono); font-size: 13px; vertical-align: baseline; box-sizing: inherit; width: auto; max-height: 600px; overflow: auto; background-color: var(--highlight-bg); border-radius: 5px; color: var(--highlight-color); overflow-wrap: normal; letter-spacing: normal; orphans: 2; text-align: left; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;"><code class="hljs language-xml" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; background-color: transparent; white-space: inherit;"><span class="hljs-tag" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit;">&lt;<span class="hljs-name" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; color: var(--highlight-namespace);">Nullable</span>&gt;</span>enable<span class="hljs-tag" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit;">&lt;/<span class="hljs-name" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; color: var(--highlight-namespace);">Nullable</span>&gt;</span>
+<span class="hljs-tag" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit;"><span style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; color: var(--highlight-namespace);">&lt;</span><span class="hljs-name" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; color: var(--highlight-namespace);">ImplicitUsings</span>&gt;</span>disable<span class="hljs-tag" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit;">&lt;/<span class="hljs-name" style="margin: 0px; padding: 0px; border: 0px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-size: 13px; vertical-align: baseline; box-sizing: inherit; color: var(--highlight-namespace);">ImplicitUsings</span>&gt;</span></code></pre>
+<pre>&nbsp;</pre>
+<p>&nbsp;</p>
+
+
+
+</body>
+
+</html>

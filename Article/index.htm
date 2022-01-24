@@ -1,0 +1,590 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>ASP</title>
+</head>
+
+<body>
+<div id="toc"><ul><li><a href="#0">Introduction</a></li><li><a href="#1">It Seems Simple</a></li><ul><li><a href="#2">Create the .NET Core 3.1 Libraries</a></li><li><a href="#3">Add the Projects to the Solution</a></li><li><a href="#4">Set the Target Framework</a></li><li><a href="#5">Build all Projects Regardless of Dependencies</a></li><li><a href="#6">Add a Reference to Microsoft.AspNetCore.Mvc</a></li><li><a href="#7">The Plugin Controller</a></li><li><a href="#8">Load the Assembly and Tell AspNetCore to Use It</a></li></ul><li><a href="#9">But it Isn't Actually That Simple</a></li><ul><li><a href="#10">Initializing Services in the Plugin</a></li><li><a href="#11">Exposing the Plugin Service to the Application</a></li><li><a href="#12">Exposing an Application Service to the Plugin</a></li></ul><li><a href="#13">Plugins that Reference Other Plugin Services</a></li><li><a href="#14">A General Plugin Loader</a></li><ul><li><a href="#15">An Interesting Alternative for Loading Controllers Only</a></li></ul><li><a href="#16">Conclusion</a></li></ul></div>
+
+<p>ASP.NET Core: Plugin Controllers and Services</p>
+<p>The middle ground between monolithic applications and an explosion of 
+microservices.</p>
+<p><img border="0" src="svc0.png" width="619" height="305"></p>
+<h2><a name="0">Introduction</a></h2>
+<p>I find that maintaining an enterprise level web API tends to result in a 
+large monolithic application, particularly in older technologies such as 
+Microsoft's MVC framework.&nbsp; Microservices provide a nice solution to 
+compartmentalize stand-alone services but I notice that this results in numerous 
+discrete repos, adds complexity to automated deployment, involves IIS 
+configurations, and if global policies are changed (security, logging, database 
+connections, etc), every microservice needs to be touched.&nbsp; Moving to 
+ASP.NET Core, I wanted to explore using runtime plugin controller/services.&nbsp; 
+The idea here is that the core (no pun intended) application handles all the 
+common policies and updates to those policies affect all the 
+controllers/services equally.&nbsp; Furthermore, there is no overhead in 
+standing up a server/container or managing IIS configurations for the 
+microservice as the additional controllers/services are simply added to the core 
+application at runtime.&nbsp; Such an approach could be utilized in a licensing 
+model to provide only those services that the customer pays for, or 
+alternatively, to add new features to the web API without having to deploy the 
+core application.&nbsp; Regardless of the pros and cons, the point of this article is to demonstrate 
+how to go about implementing a proper plug-in architecture for an ASP.NET Core 
+Web API application, so it can become another tool in the toolbox of 
+architectural considerations.</p>
+<h2><a name="1">It Seems Simple</a></h2>
+<p><img border="0" src="svc1.png" width="512" height="96"></p>
+<p>The basic concept seems quite simple.&nbsp; We start with two projects:</p>
+<ul>
+	<li>The reference web-api project (I'm starting with the code from my 
+	article
+	<a href="https://www.codeproject.com/Articles/5309416/How-I-Start-any-NET-Core-Web-API-Project">
+	How I Start any .NET Core Web API Project</a>)</li>
+	<li>A .NET Core 3.1 library.&nbsp; Oddly not the easiest thing to create in 
+	Visual Studio 2019, at least the way my VS 2019 is configured.</li>
+</ul>
+<p>When you download the reference project mentioned above and run it, it should 
+provision your local IIS for a "Demo" site name and you should see:</p>
+<p><img border="0" src="screenshot1.png" width="352" height="99"></p>
+<p>which is nothing more than the controller responding with some text.</p>
+<h3><a name="2">Create the .NET Core 3.1 Libraries</a></h3>
+<p>The library should be created as a sibling to the "Application" folder in 
+reference project.&nbsp; I've found I had to do this from the command line.&nbsp; 
+We'll create two projects:</p>
+<ul>
+	<li>Plugin</li>
+	<li>Interfaces (which will be used later)</li>
+</ul>
+<p>Open the CLI and type in:</p>
+<pre>dotnet new classlib -n "Plugin" -lang C#
+dotnet new classlib -n "Interfaces" -lang C#</pre>
+<p>You should now see the Application folder and the two folders with their 
+projects we just created (ignore my "Article" folder).&nbsp; For example:</p>
+<p><img border="0" src="screenshot2.png" width="254" height="162"></p>
+<h3><a name="3">Add the Projects to the Solution</a></h3>
+<p>Add the projects in the Interfaces and Plugin folders to the solution in 
+Visual Studio.&nbsp; When done, you should have:</p>
+<p><img border="0" src="screenshot3.png" width="216" height="83"></p>
+<h3><a name="4">Set the Target Framework</a></h3>
+<p>Next, open the properties for these two projects and set the target framework 
+to .NET Core 3.1:</p>
+<p><img border="0" src="targetFramework.png" width="128" height="51"></p>
+<h3><a name="5">Build all Projects Regardless of Dependencies</a></h3>
+<p>In the Tools =&gt; Options for Visual Studio, make sure to uncheck "Only build 
+startup projects and dependencies on Run."&nbsp; </p>
+<p><img border="0" src="onlyBuild.png" width="604" height="175"></p>
+<p>The reason for this is that the plugin is not referenced by the main project 
+and any changes won't be build unless you explicitly build them -- with this 
+checkbox checked, making a change to a non-referenced project will result in a 
+lot of head pounding "why am I not seeing my change!"</p>
+<h3><a name="6">Add a Reference to Microsoft.AspNetCore.Mvc</a></h3>
+<p><img border="0" src="aspnetcoremvc.png" width="251" height="67"></p>
+<p>Add the reference to Microsoft.AspNetCore.Mvc to the "plugin" project.</p>
+<h3><a name="7">The Plugin Controller</a></h3>
+<p><img border="0" src="svc2.png" width="515" height="179"></p>
+<p>We'll start with a simple plugin that only has a controller.</p>
+<p>Rename the default class "Class1.cs" to "PluginController.cs" and start with 
+something very basic:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+namespace Plugin
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class PluginController : ControllerBase
+  {
+    public PluginController()
+    {
+    }
+
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return "Plugin Controller v 1.0";
+    }
+  }
+}</pre>
+<h3><a name="8">Load the Assembly and Tell AspNetCore to Use It</a></h3>
+<p>Here's the fun part.&nbsp; Add the following to the <code>ConfigureServices</code> method in 
+<code>Startup.cs</code>:</p>
+<pre>Assembly assembly = Assembly.LoadFrom(@"C:\projects\PluginNetCoreDemo\Plugin\bin\Debug\netcoreapp3.1\Plugin.dll");
+var part = new AssemblyPart(assembly);
+services.AddControllers().PartManager.ApplicationParts.Add(part);
+</pre>
+<p>Yes, I've hard-coded the path - the point here is demonstrate how the plugin 
+controller is wired up rather than a discussion on how you want to determine the 
+plugin list and paths.&nbsp; The interesting thing here is the line:</p>
+<pre>services.AddControllers().PartManager.ApplicationParts.Add(part);</pre>
+<p>Unfortunately there is 
+<a href="https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.applicationparts.applicationpartmanager?view=aspnetcore-6.0">very little documentation or description</a> of what the 
+<code>ApplicationPartManager</code> does, other than "Manages the parts and features of an 
+MVC application."&nbsp; However, googling "what is the 
+ApplicationPartManager",
+<a href="https://docs.microsoft.com/en-us/aspnet/core/mvc/advanced/app-parts?view=aspnetcore-6.0#:~:text=The ApplicationPartManager tracks the application,C# Copy">
+this link</a> provides further useful description.</p>
+<p>The code above also requires:</p>
+<pre>using Microsoft.AspNetCore.Mvc.ApplicationParts;</pre>
+<p>After building the project, you show be able to navigate to localhost/Demo/plugin/version 
+and see:</p>
+<p><img border="0" src="plugin1.png" width="359" height="71"></p>
+<p>This demonstrates that the controller endpoint has been wired up and can be 
+accessed by the browser!</p>
+<h2><a name="9">But it Isn't Actually That Simple</a></h2>
+<p>As soon as we want to do something a little more interesting, like using 
+services defined in the plugin, life gets a little more complicated.&nbsp; The 
+reason is that there's nothing in the plugin that allows for the wiring up of 
+services -- there's no <code>Startup</code> class and no <code>ConfigureServices</code> implementation.&nbsp; 
+Much as I tried to figure out how do this with reflection in the main 
+application, I hit some stumbling blocks, particularly with obtaining the 
+<code>MethodInfo</code> object for the <code>AddSingleton</code> extension method.&nbsp; So I came up the 
+approach described here, which I find actually more flexible.</p>
+<h3><a name="10">Initializing Services in the Plugin</a></h3>
+<p><img border="0" src="svc3.png" width="578" height="177"></p>
+<p>Remember the "Interfaces" project created earlier?&nbsp; This is where we'll 
+start using it.&nbsp; First create a simple interface in that project:</p>
+<pre>using Microsoft.Extensions.DependencyInjection;
+
+namespace Interaces
+{
+  public interface IPlugin 
+  {
+    void Initialize(IServiceCollection services);
+  }
+}</pre>
+<p>Note that this requires adding the package 
+Microsoft.Extensions.DependencyInjection - make sure you use the latest 3.1.x 
+version as we're using .NET Core 3.1!</p>
+<p>In the Plugin project, create a simple service:</p>
+<pre>namespace Plugin
+{
+  public class PluginService
+  {
+    public string Test()
+    {
+      return "Tested!";
+    }
+  }
+}</pre>
+<p>In the Plugin project, create a class that implements it, initializing a 
+service as an example:</p>
+<pre>using Microsoft.Extensions.DependencyInjection;
+
+using Interfaces;
+
+namespace Plugin
+{
+  public class Plugin : IPlugin
+  {
+    public void Initialize(IServiceCollection services)
+    {
+      services.AddSingleton&lt;PluginService&gt;();
+    }
+  }
+}</pre>
+<p>Now add the service to the controller's constructor, which will be injected:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+namespace Plugin
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class PluginController : ControllerBase
+  {
+    private PluginService ps;
+
+    public PluginController(PluginService ps)
+    {
+      this.ps = ps;
+    }
+
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return $"Plugin Controller v 1.0 {ps.Test()}";
+    }
+  }
+}</pre>
+<p>Note that at this point, if we try to run the application, we'll see this 
+error:</p>
+<p><img border="0" src="plugin2.png" width="344" height="74"></p>
+<p>The reason is that we haven't called the Initialize method in the main 
+application so that plugin can register the service.&nbsp; We'll do this with 
+reflection in the <code>ConfigureServices</code> method:</p>
+<pre>var atypes = assembly.GetTypes();
+var types = atypes.Where(t =&gt; t.GetInterface("IPlugin") != null).ToList();
+var aservice = types[0];
+var initMethod = aservice.GetMethod("Initialize", BindingFlags.Public | BindingFlags.Instance);
+var obj = Activator.CreateInstance(aservice);
+initMethod.Invoke(obj, new object[] { services });</pre>
+<p>and now we see that the controller is using the service!</p>
+<p><img border="0" src="plugin3.png" width="344" height="67"></p>
+
+<p>The above code is rather horrid, so let's refactor it.&nbsp; We'll also have 
+the application reference the Interfaces project, so we can do this:</p>
+<pre>var atypes = assembly.GetTypes();
+var pluginClass = atypes.SingleOrDefault(t =&gt; t.GetInterface(nameof(IPlugin)) != null);
+
+if (pluginClass != null)
+{
+  var initMethod = pluginClass.GetMethod(nameof(IPlugin.Initialize), BindingFlags.Public | BindingFlags.Instance);
+  var obj = Activator.CreateInstance(pluginClass);
+  initMethod.Invoke(obj, new object[] { services });
+}</pre>
+<p>This is a lot cleaner, using <code>nameof</code>, and we also don't care if the plugin 
+doesn't implement a class with this interface -- maybe it doesn't have any 
+services.</p>
+<p>So now we have plugins that can use their own services.&nbsp; It is important 
+to note that this approach allows the plugin to initialize the service as it 
+wishes:&nbsp; as a singleton, scoped, or transient service.</p>
+<p>But what about 
+exposing the service to the application?</p>
+<h3><a name="11">Exposing the Plugin Service to the Application</a></h3>
+<p><img border="0" src="svc4.png" width="575" height="172"></p>
+<p>This is where the interfaces become more useful.&nbsp; Let's refactor the 
+service as:</p>
+<pre>using Interfaces;
+
+namespace Plugin
+{
+  public class PluginService : IPluginService
+  {
+    public string Test()
+    {
+      return "Tested!";
+    }
+  }
+}</pre>
+<p>and define the <code>IPluginService</code> as:</p>
+<pre>namespace Interfaces
+{
+  public interface IPluginService
+  {
+    string Test();
+  }
+}</pre>
+<p>Now let's go back to our <code>Public</code> application controller and 
+implement the dependency injection for <code>IPluginService</code>:</p>
+<pre>using System;
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Demo.Controllers
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class Public : ControllerBase
+  {
+    private IPluginService ps;
+
+    public Public(IPluginService ps)
+    {
+      this.ps = ps;
+    }
+
+    [AllowAnonymous]
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return new { Version = "1.00", PluginSays = ps.Test() };
+    }
+  }
+}</pre>
+<p>Again, this time for the application's <code>public/version</code> route, we get:</p>
+<p><img border="0" src="plugin4.png" width="346" height="63"></p>
+<p>The reason is that the plugin initialized its service as the service type:</p>
+<pre>services.AddSingleton&lt;PluginService&gt;();</pre>
+<p>This line has to be changed now to:</p>
+<pre>services.AddSingleton&lt;IPluginService, PluginService&gt;();</pre>
+<p>and now we see:</p>
+<p><img border="0" src="plugin5.png" width="201" height="77"></p>
+<p>But we broke the plugin:</p>
+<p><img border="0" src="plugin6.png" width="340" height="73"></p>
+<p>So we also have to refactor the plugin controller to use the interface for 
+dependency injection rather than the concrete service type:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Plugin
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class PluginController : ControllerBase
+  {
+    private IPluginService ps;
+
+    public PluginController(IPluginService ps)
+    {
+      this.ps = ps;
+    }
+
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return $"Plugin Controller v 1.0 {ps.Test()}";
+    }
+  }
+}</pre>
+<p>Note the change to using <code>IPluginService</code>.&nbsp; Now all is right with the 
+world again:</p>
+<p><img border="0" src="plugin7.png" width="349" height="75"></p>
+<h3><a name="12">Exposing an Application Service to the Plugin</a></h3>
+<p><img border="0" src="svc5.png" width="576" height="185"></p>
+<p>Lastly, we want to test exposing an application service to the plugin.&nbsp; 
+Again, the service must be initialized with an interface in the Interfaces 
+project so it can be shared by both the application and the plugin:</p>
+<pre>namespace Interfaces
+{
+  public interface IApplicationService
+  {
+    string Test();
+  }
+}</pre>
+<p>And our application service:</p>
+<pre>using Interfaces;
+
+namespace Demo.Services
+{
+  public class ApplicationService : IApplicationService
+  {
+    public string Test()
+    {
+      return "Application Service Tested!";
+    }
+  }
+}</pre>
+<p>and it's initialization:</p>
+<pre>services.AddSingleton&lt;IApplicationService, ApplicationService&gt;();</pre>
+<p>Now in our plugin, will indicate that this interface should be injected:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Plugin
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class PluginController : ControllerBase
+  {
+    private IPluginService ps;
+    private IApplicationService appSvc;
+
+    public PluginController(IPluginService ps, IApplicationService appSvc)
+    {
+      this.ps = ps;
+      this.appSvc = appSvc;
+    }
+
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return $"Plugin Controller v 1.0 {ps.Test()} {appSvc.Test()}";
+    }
+  }
+}</pre>
+<p>And we see:</p>
+<p><img border="0" src="plugin8.png" width="434" height="70"></p>
+<h2><a name="13">Plugins that Reference Other Plugin Services</a></h2>
+<p><img border="0" src="svc6.png" width="620" height="261"></p>
+<p>One can use this same approach for plugins that only provide services.&nbsp; 
+For example, let's add another project, <code>Plugin2</code>, that only implements a service:</p>
+<pre>using Interfaces;
+
+namespace Plugin2
+{
+  public class Plugin2Service : IPlugin2Service
+  {
+    public int Add(int a, int b)
+    {
+      return a + b;
+    }
+  }
+}</pre>
+<p>and:</p>
+<pre>using Microsoft.Extensions.DependencyInjection;
+
+using Interfaces;
+
+namespace Plugin2
+{
+  public class Plugin2 : IPlugin
+  {
+    public void Initialize(IServiceCollection services)
+    {
+      services.AddSingleton&lt;IPlugin2Service, Plugin2Service&gt;();
+    }
+  }
+}</pre>
+<p>and in the application's <code>ConfigureServices</code> method we'll add the 
+hard-coded initialization for the second plugin (don't do this at home this 
+way!):</p>
+<pre>Assembly assembly2 = Assembly.LoadFrom(@"C:\projects\PluginNetCoreDemo\Plugin2\bin\Debug\netcoreapp3.1\Plugin2.dll");
+var part2 = new AssemblyPart(assembly2);
+services.AddControllers().PartManager.ApplicationParts.Add(part2);
+
+var atypes2 = assembly2.GetTypes();
+var pluginClass2 = atypes2.SingleOrDefault(t =&gt; t.GetInterface(nameof(IPlugin)) != null);
+
+if (pluginClass2 != null)
+{
+  var initMethod = pluginClass2.GetMethod(nameof(IPlugin.Initialize), BindingFlags.Public | BindingFlags.Instance);
+  var obj = Activator.CreateInstance(pluginClass2);
+  initMethod.Invoke(obj, new object[] { services });
+}</pre>
+<p><u><b>I hope it's obvious that this is for demonstration purposes only</b></u> and you 
+would never hard-code the plugins in the <code>ConfigureServices</code> method 
+or copy &amp; paste the initialization code!</p>
+<p>And, in our first plugin:</p>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Plugin
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class PluginController : ControllerBase
+  {
+    private IPluginService ps;
+    private IPlugin2Service ps2;
+    private IApplicationService appSvc;
+
+    public PluginController(IPluginService ps, IPlugin2Service ps2, IApplicationService appSvc)
+    {
+      this.ps = ps;
+      this.ps2 = ps2;
+      this.appSvc = appSvc;
+    }
+
+    [HttpGet("Version")]
+    public object Version()
+    {
+      return $"Plugin Controller v 1.0 {ps.Test()} {appSvc.Test()} and 1 + 2 = {ps2.Add(1, 2)}";
+    }
+  }
+}</pre>
+<p>and we see:</p>
+<p><img border="0" src="plugin9.png" width="546" height="72"></p>
+<p>Demonstrating that the first plugin is using a service provided by the second 
+plugin, all courtesy of the dependency injection provided by ASP.NET.</p>
+<h2><a name="14">A General Plugin Loader</a></h2>
+<p>One approach is to specify the plugins in the <code>appsettings.json</code> file:</p>
+<pre>"Plugins": [
+  { "Path": "<a href="file:///C://projects//PluginNetCoreDemo//Plugin//bin//Debug//netcoreapp3.1//Plugin.dll">C:\\projects\\PluginNetCoreDemo\\Plugin\\bin\\Debug\\netcoreapp3.1\\Plugin.dll</a>" },
+  { "Path": "C:\\projects\\PluginNetCoreDemo\\Plugin2\\bin\\Debug\\netcoreapp3.1\\Plugin2.dll" }
+]</pre>
+<p>I opted to provide the full path as opposed to using the 
+<code>Assembly.GetExecutingAssembly().Location</code> as I think it's more flexible to not 
+assume the plugin's DLL is in the application's execution location.</p>
+<p>The the <code>AppSettings</code> class is modified to list the plugins:</p>
+<pre>public class AppSettings
+{
+  public static AppSettings Settings { get; set; }
+
+  public AppSettings()
+  {
+    Settings = this;
+  }
+
+  public string Key1 { get; set; }
+  public string Key2 { get; set; }
+  public List&lt;Plugin&gt; Plugins { get; set; } = new List&lt;Plugin&gt;();
+}</pre>
+<p>We can now implement an extension method to load the plugins and call the 
+service initializer if one exists:</p>
+<pre>public static class ServicePluginExtension
+{
+  public static IServiceCollection LoadPlugins(this IServiceCollection services, AppSettings appSettings)
+  {
+    AppSettings.Settings.Plugins.ForEach(p =&gt;
+    {
+      Assembly assembly = Assembly.LoadFrom(p.Path);
+      var part = new AssemblyPart(assembly);
+      services.AddControllers().PartManager.ApplicationParts.Add(part);
+
+      var atypes = assembly.GetTypes();
+      var pluginClass = atypes.SingleOrDefault(t =&gt; t.GetInterface(nameof(IPlugin)) != null);
+
+      if (pluginClass != null)
+      {
+        var initMethod = pluginClass.GetMethod(nameof(IPlugin.Initialize), BindingFlags.Public | BindingFlags.Instance);
+        var obj = Activator.CreateInstance(pluginClass);
+        initMethod.Invoke(obj, new object[] { services });
+      }
+    });
+
+    return services;
+  }
+}    </pre>
+<p>And we call it in the <code>ConfigureServices</code> method with:</p>
+<pre>services.LoadPlugins();</pre>
+<p>There are other ways to this as well of course.</p>
+<h3><a name="15">An Interesting Alternative for Loading Controllers Only</a></h3>
+<p>If the only thing you need to do is load controllers, I stumbled across this 
+implementation, which frankly, is voodoo to me as I know nothing about how the 
+<code>IApplicationProvider</code> works.</p>
+<pre>using System.Collections.Generic;
+using System.Linq;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.Mvc.Controllers;
+
+... 
+
+public class GenericControllerFeatureProvider : IApplicationFeatureProvider&lt;ControllerFeature&gt;
+{
+  public void PopulateFeature(IEnumerable&lt;ApplicationPart&gt; parts, ControllerFeature feature)
+  {
+    Assembly assembly = Assembly.LoadFrom(p.Path);
+    var atypes = assembly.GetTypes();
+    var types = atypes.Where(t =&gt; t.BaseType == typeof(ControllerBase)).ToList();
+    feature.Controllers.Add(types[0].GetTypeInfo());
+  }
+}</pre>
+<p>and is called with:</p>
+<pre>services.AddControllers().PartManager.FeatureProviders.Add(new GenericControllerFeatureProvider());</pre>
+<p>This implementation has the drawback that it doesn't have an 
+<code>IServiceCollection</code> instance anywhere that I can find and therefore the plugin 
+cannot be called to register its services.&nbsp; But if you have only 
+controllers in your plugins (they can still reference services from your 
+application) then this is another viable approach.</p>
+<h2><a name="16">Conclusion</a></h2>
+<p><img border="0" src="hal.png" width="366" height="236"></p>
+<p>As with my other article 
+<a href="https://www.codeproject.com/Articles/5320154/Client-to-Server-File-Data-Streaming">
+Client to Server File/Data Streaming</a>, I found that a concise guide on how to 
+implement plugin controllers and share services between the application and the 
+plugin was very much missing from the interwebs.&nbsp; Hopefully this article 
+fills in that gap.</p>
+<p>One thing that should be noted - I haven't implemented an assembly resolver 
+in case the plugin references DLL's that are in its own directly rather than in 
+the application's execution location.</p>
+<p>Ideally, one would not share services between the application and the plugin 
+(or between plugin and plugin) because this creates a coupling via the "interfaces" library (or worse, 
+libraries) where, if you change the implementation, then the interface has to 
+change, and then everything needs to be rebuilt.&nbsp; 
+Possible exceptions to this are services that are highly stable, perhaps 
+database services.&nbsp; An intriguing idea is for the main web-api application 
+to simply 
+be the initialization of plugins and common services (logging, authentication, 
+authorization, etc) -- there's a certain appeal to this and it 
+reminds me a bit of how HAL 9000 appears to be configured in 2001: A Space Oddyssey -- poor HAL starts to degrade as modules are unplugged!&nbsp; 
+However as mentioned, this approach might result in interface dependencies, 
+unless your plugins are autonomous.</p>
+<p>In any case, this offers an interesting alternative to the typical 
+implementations:</p>
+<ul>
+	<li>a monolithic application</li>
+	<li>application with DLL's referenced directly (quasi-monolithic)</li>
+<li>microservices</li>
+</ul>
+<p>I hope you find this to be another option in the toolbox of creating ASP.NET 
+Core web API's.</p>
+</body>
+
+</html>
