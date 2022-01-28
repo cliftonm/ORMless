@@ -25,7 +25,7 @@ namespace Migrations
     */
 
     [Migration(202201011202)]
-    internal class _202201011202_PermissionsAndRoles : Migration
+    public class _202201011202_PermissionsAndRoles : Migration
     {
         public override void Up()
         {
@@ -42,7 +42,7 @@ namespace Migrations
                 .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("Username").AsString().NotNullable()
                 .WithColumn("Password").AsString().NotNullable()
-                .WithColumn("Salt").AsString().NotNullable()            // The salt can and should be stored right next to the salted and hashed password.  The Internet never lies, right?
+                .WithColumn("Salt").AsString().Nullable()            // The salt can and should be stored right next to the salted and hashed password.  The Internet never lies, right?
                 .WithColumn("AccessToken").AsString().Nullable()
                 .WithColumn("RefreshToken").AsString().Nullable()
                 .WithColumn("IsSysAdmin").AsBoolean().NotNullable()
@@ -65,10 +65,10 @@ namespace Migrations
             Create.Table("EntityRole")
                 .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("RoleID").AsInt32().NotNullable().ForeignKey("Role", "ID")
-                .WithColumn("EntityID").AsInt32().NotNullable().ForeignKey("EntityID", "ID")
+                .WithColumn("EntityID").AsInt32().NotNullable().ForeignKey("Entity", "ID")
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
-            Insert.IntoTable("User").Row(new { Username = "SysAdmin", Password = "SysAdmin", IsSysAdmin = true });
+            Insert.IntoTable("User").Row(new { Username = "SysAdmin", Password = "SysAdmin", IsSysAdmin = true, Deleted = false });
         }
 
         public override void Down()
