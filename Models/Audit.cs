@@ -6,7 +6,7 @@ namespace Models
     public class Audit
     {
         [Key]
-        public int ID { get; set; }
+        public int Id { get; set; }
         public string Entity { get; set; }
         public int EntityId { get; set; }
         public string RecordBefore { get; set; }

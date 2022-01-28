@@ -3,6 +3,9 @@
     public static class Constants
     {
         public const string CRLF = "\r\n";
+        public const string AUTHORIZATION = "Authorization";
+        public const string TOKEN_PREFIX = "Bearer";
+
         public const string VERSION_INFO = "VersionInfo";
 
         public const string ID = "ID";

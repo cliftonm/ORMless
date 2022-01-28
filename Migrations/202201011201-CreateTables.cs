@@ -8,7 +8,7 @@ namespace DMS.Migrations
         public override void Up()
         {
             Create.Table("Test")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("IntField").AsInt32().Nullable()
                 .WithColumn("StringField").AsString().Nullable()
                 .WithColumn("DateField").AsDate().Nullable()
@@ -18,7 +18,7 @@ namespace DMS.Migrations
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             Create.Table("Audit")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("Entity").AsString().NotNullable()
                 .WithColumn("EntityId").AsInt32().NotNullable()
                 .WithColumn("RecordBefore").AsString(int.MaxValue).Nullable()

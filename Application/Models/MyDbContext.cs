@@ -9,6 +9,7 @@ namespace Demo.Models
     {
         public DbSet<VersionInfo> VersionInfo { get; set; }
         public DbSet<Audit> Audit { get; set; }
+        public DbSet<User> User { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {

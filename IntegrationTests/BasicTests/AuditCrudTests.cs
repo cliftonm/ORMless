@@ -68,8 +68,8 @@ namespace IntegrationTests
                 .AndOk()
                 .Get<List<Audit>>("entity/audit")
                 .IShouldSee<List<Audit>>(r => r.Count.Should().Be(2))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).First().Action.Should().Be(Constants.AUDIT_INSERT))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).Skip(1).First().Action.Should().Be(Constants.AUDIT_UPDATE));
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).First().Action.Should().Be(Constants.AUDIT_INSERT))
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).Skip(1).First().Action.Should().Be(Constants.AUDIT_UPDATE));
         }
 
         [TestMethod]
@@ -87,8 +87,8 @@ namespace IntegrationTests
                 .AndNoContent()
                 .Get<List<Audit>>("entity/audit")
                 .IShouldSee<List<Audit>>(r => r.Count.Should().Be(2))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).First().Action.Should().Be(Constants.AUDIT_INSERT))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).Skip(1).First().Action.Should().Be(Constants.AUDIT_DELETE));
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).First().Action.Should().Be(Constants.AUDIT_INSERT))
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).Skip(1).First().Action.Should().Be(Constants.AUDIT_DELETE));
         }
 
         [TestMethod]
@@ -106,8 +106,8 @@ namespace IntegrationTests
                 .AndNoContent()
                 .Get<List<Audit>>("entity/audit")
                 .IShouldSee<List<Audit>>(r => r.Count.Should().Be(2))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).First().Action.Should().Be(Constants.AUDIT_INSERT))
-                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.ID).Skip(1).First().Action.Should().Be(Constants.AUDIT_DELETE));
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).First().Action.Should().Be(Constants.AUDIT_INSERT))
+                .IShouldSee<List<Audit>>(r => r.OrderBy(q => q.Id).Skip(1).First().Action.Should().Be(Constants.AUDIT_DELETE));
         }
     }
 }

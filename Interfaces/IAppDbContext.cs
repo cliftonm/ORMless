@@ -8,6 +8,7 @@ namespace Interfaces
     {
         DbSet<VersionInfo> VersionInfo { get; set; }
         DbSet<Audit> Audit { get; set; }
+        DbSet<User> User { get; set; }
         int SaveChanges();
     }
 }

@@ -9,9 +9,9 @@ namespace Demo.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class Public : ControllerBase
+    public class PublicController : ControllerBase
     {
-        public Public()
+        public PublicController()
         {
         }
 

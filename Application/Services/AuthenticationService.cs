@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Linq;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using Clifton;
+using Interfaces;
+using Lib;
 
 namespace Demo.Services
 {
@@ -15,12 +19,16 @@ namespace Demo.Services
 
     public class AuthenticationService : AuthenticationHandler<TokenAuthenticationSchemeOptions>
     {
+        private readonly IAppDbContext context;
+
         public AuthenticationService(
+            IAppDbContext context,
             IOptionsMonitor<TokenAuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
             ISystemClock clock) : base(options, logger, encoder, clock)
         {
+            this.context = context;
         }
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -30,24 +38,28 @@ namespace Demo.Services
             // Authentication confirms that users are who they say they are.
             // Authorization gives those users permission to access a resource.
 
-            if (Request.Headers.ContainsKey("yourAuthKey"))
+            if (Request.Headers.ContainsKey(Constants.AUTHORIZATION))
             {
-                // Verify the key...
+                var token = Request.Headers[Constants.AUTHORIZATION][0].RightOf(Constants.TOKEN_PREFIX).Trim();
+                var user = context.User.Where(u => u.Password == token).FirstOrDefault();
 
-                // If verified, optionally add some claims about the user...
-                var claims = new[]
+                if (user != null)
                 {
-                    new Claim("[key]", "value"),
-                };
+                    // If verified, optionally add some claims about the user...
+                    var claims = new[]
+                    {
+                        new Claim("token", token),
+                    };
 
-                // Generate claimsIdentity on the name of the class:
-                var claimsIdentity = new ClaimsIdentity(claims, nameof(AuthenticationService));
+                    // Generate claimsIdentity on the name of the class:
+                    var claimsIdentity = new ClaimsIdentity(claims, nameof(AuthenticationService));
 
-                // Generate AuthenticationTicket from the Identity
-                // and current authentication scheme.
-                var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
+                    // Generate AuthenticationTicket from the Identity
+                    // and current authentication scheme.
+                    var ticket = new AuthenticationTicket(new ClaimsPrincipal(claimsIdentity), Scheme.Name);
 
-                result = Task.FromResult(AuthenticateResult.Success(ticket));
+                    result = Task.FromResult(AuthenticateResult.Success(ticket));
+                }
             }
 
             return result;
