@@ -5,13 +5,16 @@
 using Microsoft.AspNetCore.Mvc;
 
 using Interfaces;
+using Lib;
 
 namespace Clifton.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class MigratorController : ControllerBase
+    public class MigratorController : PluginController
     {
+        public override string Version => "1.00";
+
         private readonly IMigratorService ms;
         private readonly IAppDbContext context;
 

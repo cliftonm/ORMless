@@ -2,6 +2,7 @@
 
 using FluentAssertions;
 
+using Clifton;
 using Clifton.IntegrationTestWorkflowEngine;
 using System.Net;
 

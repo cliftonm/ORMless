@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
 using Interfaces;
+using Lib;
 
 using Parameters = System.Collections.Generic.Dictionary<string, object>;
 
@@ -8,11 +9,13 @@ namespace Clifton.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class EntityController : ControllerBase
+    public class EntityController : PluginController
     {
-        private ITableService ts;
+        public override string Version => "1.00";
 
-        public EntityController(ITableService ts)
+        private readonly IEntityService ts;
+
+        public EntityController(IEntityService ts)
         {
             this.ts = ts;
         }

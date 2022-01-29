@@ -4,7 +4,7 @@ using System.Net;
 using Newtonsoft.Json;
 using RestSharp;
 
-namespace Clifton.IntegrationTestWorkflowEngine
+namespace Clifton
 {
     public static class RestService
     {

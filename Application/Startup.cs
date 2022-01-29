@@ -38,7 +38,11 @@ namespace Demo
             services.AddControllers()
                 // must be version 3.1.13 -- version 5's support .NET 5 only.
                 // https://anthonygiretti.com/2020/05/10/why-model-binding-to-jobject-from-a-request-doesnt-work-anymore-in-asp-net-core-3-1-and-whats-the-alternative/
-                .AddNewtonsoftJson(options => options.SerializerSettings.Formatting = Formatting.Indented);
+                .AddNewtonsoftJson(options =>
+                {
+                    options.SerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
+                    options.SerializerSettings.Formatting = Formatting.Indented;
+                });
 
             services.AddSwaggerGen(c =>
             {

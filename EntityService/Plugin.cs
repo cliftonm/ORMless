@@ -9,7 +9,7 @@ namespace Clifton.Services
     {
         public void Initialize(IServiceCollection services, IConfiguration cfg)
         {
-            services.AddScoped<ITableService, TableService>();
+            services.AddScoped<IEntityService, EntityService>();
         }
     }
 }

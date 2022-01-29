@@ -15,12 +15,12 @@ using Parameters = System.Collections.Generic.Dictionary<string, object>;
 
 namespace Clifton.Services
 {
-    public class TableService : ITableService
+    public class EntityService : IEntityService
     {
         private readonly IDatabaseService dbSvc;
         private readonly IAuditService auditSvc;
 
-        public TableService(IDatabaseService dbSvc, IAuditService auditSvc)
+        public EntityService(IDatabaseService dbSvc, IAuditService auditSvc)
         {
             this.dbSvc = dbSvc;
             this.auditSvc = auditSvc;

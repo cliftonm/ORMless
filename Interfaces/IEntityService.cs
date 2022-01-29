@@ -8,7 +8,7 @@ using Lib;
 
 namespace Interfaces
 {
-    public interface ITableService
+    public interface IEntityService
     {
         Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true);
         List<T> GetAll<T>(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true) where T : new();
