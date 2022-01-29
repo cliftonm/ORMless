@@ -15,7 +15,13 @@ namespace IntegrationTests
             {
                 conn.Execute("delete from Test");
                 conn.Execute("delete from Audit");
+
                 // Delete from the bottom of the FK references up to the parents.
+
+                conn.Execute("delete from UserRole");
+                conn.Execute("delete from EntityRole");
+                conn.Execute("delete from [User] where IsSysAdmin = 0");
+                conn.Execute("delete from Entity");
             }
         }
     }

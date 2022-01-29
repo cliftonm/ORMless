@@ -179,7 +179,7 @@ namespace Clifton.Services
             var withDeleteCheck = hasDeleted ? $"where {table}.{Constants.DELETED} = 0" : "";
 
             StringBuilder sb = new StringBuilder();
-            sb.Append($"select {table}.* {joinFields} from {table} {joinTables} {withDeleteCheck}");
+            sb.Append($"select [{table}].* {joinFields} from {table} {joinTables} {withDeleteCheck}");
 
             return sb;
         }
@@ -192,7 +192,7 @@ namespace Clifton.Services
 
             if (id != null)
             {
-                sb.Append($" and {table}.{Constants.ID} = @{Constants.ID}");
+                sb.Append($" and [{table}].{Constants.ID} = @{Constants.ID}");
                 parms.Add(Constants.ID, id.Value);
             }
 
@@ -204,7 +204,7 @@ namespace Clifton.Services
         private (string sql, Parameters parms) SqlInsertSelectBuilder(string table, Conditions where = null, Joins joins = null)
         {
             var sb = GetCoreSelect(table, joins);
-            sb.Append($" and {table}.{Constants.ID} in (SELECT CAST(SCOPE_IDENTITY() AS INT))");
+            sb.Append($" and [{table}].{Constants.ID} in (SELECT CAST(SCOPE_IDENTITY() AS INT))");
 
             var parms = new Parameters();
 
@@ -219,10 +219,10 @@ namespace Clifton.Services
             }
 
             parms[Constants.DELETED] = false;
-            var cols = String.Join(", ", parms.Keys.Select(k => k));
+            var cols = String.Join(", ", parms.Keys.Select(k => $"[{k}]"));
             var vals = String.Join(", ", parms.Keys.Select(k => $"@{k}"));
             StringBuilder sb = new StringBuilder();
-            sb.Append($"insert into {table} ({cols}) values ({vals});");
+            sb.Append($"insert into [{table}] ({cols}) values ({vals});");
             var query = SqlInsertSelectBuilder(table, joins: joins).sql;
             sb.Append(query);
 
@@ -239,9 +239,9 @@ namespace Clifton.Services
                 parms.Remove(Constants.DELETED);
             }
 
-            var setters = String.Join(", ", parms.Keys.Select(k => $"{k}=@{k}"));
+            var setters = String.Join(", ", parms.Keys.Select(k => $"[{k}]=@{k}"));
             StringBuilder sb = new StringBuilder();
-            sb.Append($"update {table} set {setters} where {Constants.ID} = @{Constants.ID};");
+            sb.Append($"update [{table}] set {setters} where {Constants.ID} = @{Constants.ID};");
             var query = SqlSelectBuilder(table, id).sql;
             sb.Append(query);
 

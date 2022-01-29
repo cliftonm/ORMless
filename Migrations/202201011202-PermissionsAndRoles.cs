@@ -42,10 +42,16 @@ namespace Migrations
                 .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("Username").AsString().NotNullable()
                 .WithColumn("Password").AsString().NotNullable()
-                .WithColumn("Salt").AsString().Nullable()            // The salt can and should be stored right next to the salted and hashed password.  The Internet never lies, right?
+                
+                // The salt can and should be stored right next to the salted and hashed password.  The Internet never lies, right?
+                .WithColumn("Salt").AsString().Nullable()               
+
                 .WithColumn("AccessToken").AsString().Nullable()
                 .WithColumn("RefreshToken").AsString().Nullable()
-                .WithColumn("IsSysAdmin").AsBoolean().NotNullable()
+                
+                // Hmmm.  Dangerous?
+                .WithColumn("IsSysAdmin").AsBoolean().NotNullable()     
+
                 .WithColumn("LastLogin").AsDateTime().Nullable()
                 .WithColumn("ExpiresIn").AsInt32().Nullable()
                 .WithColumn("ExpiresOn").AsInt64().Nullable()
