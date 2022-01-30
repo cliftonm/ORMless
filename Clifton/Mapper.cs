@@ -14,26 +14,28 @@ namespace Clifton
     }
 
     // https://www.codeproject.com/Tips/807820/Simple-Model-Entity-Mapper-in-Csharp
+    // And then there's this "update": https://www.codeproject.com/Tips/885770/Simple-Model-Entity-Mapper-in-Csharp-2
+    // And if you want a mapper that builds the mapper expressions: https://github.com/AutoMapper/AutoMapper
     public static class MapExtensionMethods
     {
-        public static TTarget MapTo<TSource, TTarget>(this TSource aSource, TTarget aTarget)
+        public static TTarget MapTo<TSource, TTarget>(this TSource source, TTarget target)
         {
-            var ret = MapTo(aSource.GetType(), aSource, aTarget);
+            var ret = MapTo(source.GetType(), source, target);
 
             return ret;
         }
 
-        public static TTarget CreateMapped<TTarget>(this object aSource) where TTarget : new()
+        public static TTarget CreateMapped<TTarget>(this object source) where TTarget : new()
         {
-            return MapTo(aSource.GetType(), aSource, new TTarget());
+            return MapTo(source.GetType(), source, new TTarget());
         }
 
-        public static TTarget CreateMapped<TSource, TTarget>(this TSource aSource) where TTarget : new()
+        public static TTarget CreateMapped<TSource, TTarget>(this TSource source) where TTarget : new()
         {
-            return aSource.MapTo(new TTarget());
+            return source.MapTo(new TTarget());
         }
 
-        private static TTarget MapTo<TTarget>(Type tSource, object aSource, TTarget aTarget)
+        private static TTarget MapTo<TTarget>(Type tSource, object source, TTarget target)
         {
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic;
 
@@ -46,7 +48,7 @@ namespace Clifton
                                  Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
                              }).ToList();
 
-            var trgFields = (from PropertyInfo aProp in aTarget.GetType().GetProperties(flags)
+            var trgFields = (from PropertyInfo aProp in target.GetType().GetProperties(flags)
                              where aProp.CanWrite   //check if prop is writeable
                              select new
                              {
@@ -57,14 +59,14 @@ namespace Clifton
 
             var commonFields = trgFields.In(srcFields, /* T1 */ t => t.Alias ?? t.Name, /* T2 */ t => t.Name).ToList();
 
-            foreach (var aField in commonFields)
+            foreach (var field in commonFields)
             {
-                var value = tSource.GetProperty(aField.Alias ?? aField.Name).GetValue(aSource, null);
-                PropertyInfo propertyInfos = aTarget.GetType().GetProperty(aField.Name);
-                propertyInfos.SetValue(aTarget, value, null);
+                var value = tSource.GetProperty(field.Alias ?? field.Name).GetValue(source, null);
+                PropertyInfo propertyInfos = target.GetType().GetProperty(field.Name);
+                propertyInfos.SetValue(target, value, null);
             }
 
-            return aTarget;
+            return target;
         }
     }
 }

@@ -5,7 +5,10 @@ namespace Interfaces
 {
     public interface IAccountService
     {
-        LoginResponse Login(LoginRequest req);
-        bool CreateAccount(LoginRequest req);
+        LoginResponse Login(AccountRequest req);
+        bool CreateAccount(AccountRequest req);
+        bool VerifyAccount(string token);
+        void Logout(string token);
+        void DeleteAccount(string token);
     }
 }

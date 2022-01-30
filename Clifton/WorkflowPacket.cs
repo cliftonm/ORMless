@@ -10,6 +10,7 @@ namespace Clifton.IntegrationTestWorkflowEngine
         public HttpStatusCode LastResponse { get; set; }
         public string BaseUrl { get; protected set; }
         public Dictionary<string, object> Container = new Dictionary<string, object>();
+        public Dictionary<string, string> Headers = new Dictionary<string, string>();
 
         public WorkflowPacket(string baseUrl)
         {
@@ -22,6 +23,13 @@ namespace Clifton.IntegrationTestWorkflowEngine
             var ret = Container[containerName];
 
             return ret;
+        }
+
+        public T GetObject<T>() where T : class
+        {
+            T obj = GetObject<T>(typeof(T).Name);
+
+            return obj;
         }
 
         public T GetObject<T>(string containerName) where T : class

@@ -17,7 +17,7 @@ namespace Clifton.Services
             this.context = context;
         }
 
-        public LoginResponse Login(LoginRequest req)
+        public LoginResponse Login(AccountRequest req)
         {
             LoginResponse response = null;
 
@@ -41,7 +41,11 @@ namespace Clifton.Services
             return response;
         }
 
-        public bool CreateAccount(LoginRequest req)
+        public void Logout(string token)
+        {
+        }
+
+        public bool CreateAccount(AccountRequest req)
         {
             bool ok = false;
             var existingUsers = context.User.Where(u => u.UserName == req.Username && !u.Deleted).Count();
@@ -57,6 +61,23 @@ namespace Clifton.Services
             }
 
             return ok;
+        }
+
+        public void DeleteAccount(string token)
+        {
+
+        }
+
+        public bool VerifyAccount(string token)
+        {
+            var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
+
+            if (user != null)
+            {
+
+            }
+            
+            return user != null;
         }
     }
 }

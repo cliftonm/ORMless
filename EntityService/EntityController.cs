@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 using Interfaces;
 using Lib;
@@ -21,6 +22,7 @@ namespace Clifton.Controllers
         }
 
         // TODO: Pagination?
+        [Authorize]
         [HttpGet("{entityName}")]
         public ActionResult GetAll(string entityName)
         {
@@ -29,6 +31,7 @@ namespace Clifton.Controllers
             return Ok(result);
         }
 
+        [Authorize]
         [HttpGet("{entityName}/{entityId}")]
         public ActionResult GetById(string entityName, int entityId)
         {
@@ -38,6 +41,7 @@ namespace Clifton.Controllers
             return ret;
         }
 
+        [Authorize]
         [HttpPost("{entityName}")]
         public ActionResult Insert(string entityName, Parameters data)
         {
@@ -46,6 +50,7 @@ namespace Clifton.Controllers
             return Ok(result);
         }
 
+        [Authorize]
         [HttpPatch("{entityName}/{entityId}")]
         public ActionResult Update(string entityName, int entityId, Parameters data)
         {
@@ -59,6 +64,7 @@ namespace Clifton.Controllers
         // <modules>
         //   <remove name = "WebDAVModule" />
         // </ modules >
+        [Authorize]
         [HttpDelete("{entityName}/{entityId}")]
         public ActionResult SoftDelete(string entityName, int entityId)
         {
@@ -72,6 +78,7 @@ namespace Clifton.Controllers
         // <modules>
         //   <remove name = "WebDAVModule" />
         // </ modules >
+        [Authorize]
         [HttpDelete("{entityName}/{entityId}/Hard")]
         public ActionResult HardDelete(string entityName, int entityId)
         {

@@ -7,6 +7,7 @@ using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
+using IntegrationTests.AccountTests;
 using IntegrationTests.Models;
 using WorkflowTestMethods;
 
@@ -41,6 +42,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0));
@@ -54,6 +56,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -72,6 +75,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -90,6 +94,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -108,6 +113,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -125,10 +131,12 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Post<Test>("entity/test", testData2)
                 .AndOk()
+                .Break()
                 .Get<List<Test>>($"entity/test")
                 .IShouldSee<List<Test>>(t => t.Count.Should().Be(2));
         }
@@ -140,6 +148,7 @@ namespace IntegrationTests
 
             ClearAllTables();
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))

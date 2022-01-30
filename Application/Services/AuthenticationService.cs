@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
@@ -19,16 +18,17 @@ namespace Demo.Services
 
     public class AuthenticationService : AuthenticationHandler<TokenAuthenticationSchemeOptions>
     {
-        private readonly IAppDbContext context;
+        private readonly IAccountService acctSvc;
 
         public AuthenticationService(
             IAppDbContext context,
+            IAccountService accountService,
             IOptionsMonitor<TokenAuthenticationSchemeOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
             ISystemClock clock) : base(options, logger, encoder, clock)
         {
-            this.context = context;
+            this.acctSvc = accountService;
         }
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -41,9 +41,9 @@ namespace Demo.Services
             if (Request.Headers.ContainsKey(Constants.AUTHORIZATION))
             {
                 var token = Request.Headers[Constants.AUTHORIZATION][0].RightOf(Constants.TOKEN_PREFIX).Trim();
-                var user = context.User.Where(u => u.Password == token).FirstOrDefault();
+                bool verified = acctSvc.VerifyAccount(token);
 
-                if (user != null)
+                if (verified)
                 {
                     // If verified, optionally add some claims about the user...
                     var claims = new[]

@@ -10,6 +10,7 @@ using Clifton.IntegrationTestWorkflowEngine;
 
 using Models;
 
+using IntegrationTests.AccountTests;
 using IntegrationTests.Models;
 using WorkflowTestMethods;
 
@@ -44,6 +45,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Get<List<Audit>>("entity/audit")
@@ -59,6 +61,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))
@@ -79,6 +82,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))
@@ -98,6 +102,7 @@ namespace IntegrationTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))
