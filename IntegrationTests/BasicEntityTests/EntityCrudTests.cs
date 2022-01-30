@@ -7,7 +7,6 @@ using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
-using IntegrationTests.AccountTests;
 using IntegrationTests.Models;
 using WorkflowTestMethods;
 
@@ -16,26 +15,6 @@ namespace IntegrationTests
     [TestClass]
     public class EntityCrudTests : Setup
     {
-        public static Test testData = new Test()
-        {
-            IntField = 1,
-            StringField = "test",
-            DateField = DateTime.Parse("8/19/1962"),
-            DateTimeField = DateTime.Parse("3/21/1991 7:47 pm"),
-            TimeField = DateTime.Parse("12:05 am"),
-            BitField = true
-        };
-
-        public static Test testData2 = new Test()
-        {
-            IntField = 2,
-            StringField = "test2",
-            DateField = DateTime.Parse("8/20/1962"),
-            DateTimeField = DateTime.Parse("3/22/1991 7:47 pm"),
-            TimeField = DateTime.Parse("12:06 am"),
-            BitField = true
-        };
-
         [TestMethod]
         public void CreateEntityTest()
         {

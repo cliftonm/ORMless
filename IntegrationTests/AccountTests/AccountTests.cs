@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -14,22 +12,6 @@ using WorkflowTestMethods;
 
 namespace IntegrationTests.AccountTests
 {
-    public static class AccountExtensionMethods
-    {
-        public static WorkflowPacket Login(this WorkflowPacket wp, string username = "SysAdmin", string password = "SysAdmin")
-        {
-            string token = null;
-
-            wp
-                .Post<LoginResponse>("account/login", new { Username = username, Password = password })
-                .AndOk()
-                .Then(wp => token = wp.GetObject<LoginResponse>().access_token)
-                .UseHeader("Authorization", $"Bearer {token}");
-
-            return wp;
-        }
-    }
-
     [TestClass]
     public class AccountTests : Setup
     {
