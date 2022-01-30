@@ -15,8 +15,8 @@ namespace Models
         public string RefreshToken { get; set; }
         public bool IsSysAdmin { get; set; }
         public DateTime? LastLogin { get; set; }
-        public int ExpiresIn { get; set; }
-        public long ExpiresOn { get; set; }
+        public int? ExpiresIn { get; set; }
+        public long? ExpiresOn { get; set; }
         public bool Deleted { get; set; }
     }
 }

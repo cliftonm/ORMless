@@ -53,7 +53,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -71,7 +71,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -89,7 +89,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -107,7 +107,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0))
@@ -124,7 +124,7 @@ namespace IntegrationTests
         {
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Post<Test>("entity/test", testData2)
@@ -139,7 +139,7 @@ namespace IntegrationTests
             int id = -1;
 
             ClearAllTables();
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))

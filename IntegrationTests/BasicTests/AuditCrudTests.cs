@@ -43,8 +43,7 @@ namespace IntegrationTests
         {
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
-                .Break()
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Get<List<Audit>>("entity/audit")
@@ -59,7 +58,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))
@@ -79,7 +78,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))
@@ -98,7 +97,7 @@ namespace IntegrationTests
 
             ClearAllTables();
 
-            var wp = new WorkflowPacket(URL)
+            new WorkflowPacket(URL)
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .Then(wp => wp.IGet<Test>(t => id = t.ID))

@@ -32,6 +32,11 @@ namespace WorkflowTestMethods
             return wp;
         }
 
+        public static WorkflowPacket Post(this WorkflowPacket wp, string route, object data)
+        {
+            return wp.Post(route, data);
+        }
+
         public static WorkflowPacket Post<T>(this WorkflowPacket wp, string route, object data) where T : new()
         {
             return wp.Post<T>(typeof(T).Name, route, data);
@@ -78,6 +83,13 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndOk(this WorkflowPacket wp)
         {
             wp.LastResponse.Should().Be(HttpStatusCode.OK);
+
+            return wp;
+        }
+
+        public static WorkflowPacket AndUnauthorized(this WorkflowPacket wp)
+        {
+            wp.LastResponse.Should().Be(HttpStatusCode.Unauthorized);
 
             return wp;
         }

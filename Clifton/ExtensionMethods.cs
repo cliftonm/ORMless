@@ -273,6 +273,20 @@ public static string LeftOf(this string src, char c)
 
         // See Mr.PoorInglish's rework of my article here:
         // https://www.codeproject.com/Articles/5293576/A-Performant-Items-in-List-A-that-are-not-in-List?msg=5782421#xx5782421xx
+        public static IEnumerable<T1> In<T1, T2, TKey>(
+            this IEnumerable<T1> items1,
+            IEnumerable<T2> items2,
+            Func<T1, TKey> keySelector1, Func<T2, TKey> keySelector2)
+        {
+            var dict1 = items1.ToDictionary(keySelector1);
+            var k1s = dict1.Keys.Intersect(items2.Select(itm2 => keySelector2(itm2)));
+            var notIn = k1s.Select(k1 => dict1[k1]);
+
+            return notIn;
+        }
+
+        // See Mr.PoorInglish's rework of my article here:
+        // https://www.codeproject.com/Articles/5293576/A-Performant-Items-in-List-A-that-are-not-in-List?msg=5782421#xx5782421xx
         public static IEnumerable<T1> NotIn<T1, T2, TKey>(
             this IEnumerable<T1> items1, 
             IEnumerable<T2> items2,

@@ -1,5 +1,7 @@
 ﻿using FluentMigrator;
 
+using Clifton;
+
 namespace Migrations
 {
     /*
@@ -74,7 +76,11 @@ namespace Migrations
                 .WithColumn("EntityID").AsInt32().NotNullable().ForeignKey("Entity", "ID")
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
-            Insert.IntoTable("User").Row(new { Username = "SysAdmin", Password = "SysAdmin", IsSysAdmin = true, Deleted = false });
+            var salt = Hasher.GenerateSalt();
+            var pwd = "SysAdmin";
+            var hashedPassword = Hasher.HashPassword(salt, pwd);
+
+            Insert.IntoTable("User").Row(new { Username = "SysAdmin", Password = hashedPassword, Salt = salt, IsSysAdmin = true, Deleted = false });
         }
 
         public override void Down()

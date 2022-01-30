@@ -10,4 +10,8 @@
     <PackageReference Include="FluentMigrator" Version="3.3.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Clifton\Clifton.csproj" />
+  </ItemGroup>
+
 </Project>

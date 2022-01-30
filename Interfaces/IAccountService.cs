@@ -1,6 +1,11 @@
-﻿namespace Interfaces
+﻿using Models.Requests;
+using Models.Responses;
+
+namespace Interfaces
 {
-    public class IAccountService
+    public interface IAccountService
     {
+        LoginResponse Login(LoginRequest req);
+        bool CreateAccount(LoginRequest req);
     }
 }

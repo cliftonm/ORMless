@@ -7,9 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Clifton;
 using Interfaces;
 using Lib;
-using Models;
-
-using Clifton.Requests;
+using Models.Requests;
+using Models.Responses;
 
 namespace Clifton.Controllers
 {
@@ -19,38 +18,32 @@ namespace Clifton.Controllers
     {
         public override string Version => "1.00";
 
-        private readonly IAppDbContext context;
+        private readonly IAccountService svc;
 
-        public AccountController(IAppDbContext context)
+        public AccountController(IAccountService svc)
         {
-            this.context = context; 
+            this.svc = svc;
         }
 
         [AllowAnonymous]
         [HttpPost("Login")]
         public ActionResult Login(LoginRequest req)
         {
-            return Ok();
+            var resp = svc.Login(req);
+
+            var ret = resp == null ? (ActionResult)Unauthorized("User not found.") : Ok(resp);
+
+            return ret;
         }
 
         [Authorize]
+        [HttpPost()]
         public ActionResult CreateAccount(LoginRequest req)
         {
-            ActionResult ret;
+            ActionResult ret = Ok();
 
-            var existingUsers = context.User.Where(u => u.UserName == req.Username && !u.Deleted).Count();
-
-            if (existingUsers == 0)
-            {
-                var salt = Hasher.GenerateSalt();
-                var hashedPassword = Hasher.HashPassword(salt, req.Password);
-                var user = new User() { UserName = req.Username, Password = hashedPassword, Salt = salt };
-                context.User.Add(user);
-                context.SaveChanges();
-                ret = Ok();
-            }
-            else
-            {
+            if (!svc.CreateAccount(req))
+            { 
                 ret = BadRequest($"Username {req.Username} already exists.");
             }
 

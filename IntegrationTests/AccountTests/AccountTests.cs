@@ -8,19 +8,30 @@ using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
-using Models;
+using Models.Responses;
 
-using IntegrationTests.Models;
 using WorkflowTestMethods;
 
 namespace IntegrationTests.AccountTests
 {
     [TestClass]
-    public class AccountTests
+    public class AccountTests : Setup
     {
         [TestMethod]
-        public void CreateAccountTest()
+        public void SysAdminLoginTest()
         {
+            new WorkflowPacket(URL)
+                .Post<LoginResponse>("account/login", new { Username = "SysAdmin", Password = "SysAdmin" })
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
+        }
+
+        [TestMethod]
+        public void BadLoginTest()
+        {
+            new WorkflowPacket(URL)
+                .Post<LoginResponse>("account/login", new { Username = "baad", Password = "f00d" })
+                .AndUnauthorized();
         }
     }
 }
