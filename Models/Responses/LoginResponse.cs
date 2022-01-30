@@ -2,6 +2,7 @@
 
 namespace Models.Responses
 {
+    // RFC 6750
     public class LoginResponse
     {
         [MapperProperty(Name = "AccessToken")]
