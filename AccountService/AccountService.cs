@@ -43,6 +43,9 @@ namespace Clifton.Services
 
         public void Logout(string token)
         {
+            var user = context.User.Single(u => u.AccessToken == token);
+            user.Logout();
+            context.SaveChanges();
         }
 
         public bool CreateAccount(AccountRequest req)

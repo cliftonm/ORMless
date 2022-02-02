@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -6,6 +8,7 @@ using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
+using Models;
 using Models.Responses;
 
 using WorkflowTestMethods;
@@ -22,6 +25,7 @@ namespace IntegrationTests.AccountTests
 
             new WorkflowPacket(URL)
                 .Login()
+                .AndOk()
                 .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
         }
 
@@ -41,8 +45,20 @@ namespace IntegrationTests.AccountTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
-                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
                 .Post("account/logout", null)
+                .AndOk()
+
+                // login as SysAdmin to access User table.
+                .Login()
+                .AndOk()
+                .Get<List<User>>($"entity/User")
+                .AndOk()
+                .IShouldSee<List<User>>(users => users.FirstOrDefault(u => u.UserName == "Marc" && u.AccessToken != null).Should().BeNull())
                 .AndOk();
         }
 
@@ -69,9 +85,26 @@ namespace IntegrationTests.AccountTests
                 // I never use fizbin for any of my accounts, if you are wondering.
                 .Post("account", new { Username = "Marc", Password = "fizbin" })
                 .AndOk()
-                // And the user can log in
                 .Login("Marc", "fizbin")
+                .AndOk()
                 .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
+        }
+
+
+        [TestMethod]
+        public void DeleteAccountTest()
+        {
+            ClearAllTables();
+
+            new WorkflowPacket(URL)
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .Delete("account")
+                .Login("Marc", "fizbin")
+                .AndUnauthorized();
         }
     }
 }

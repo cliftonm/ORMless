@@ -18,5 +18,13 @@ namespace Models
         public int? ExpiresIn { get; set; }
         public long? ExpiresOn { get; set; }
         public bool Deleted { get; set; }
+
+        public void Logout()
+        {
+            AccessToken = null;
+            RefreshToken = null;
+            ExpiresIn = null;
+            ExpiresOn = null;
+        }
     }
 }
