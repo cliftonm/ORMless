@@ -93,11 +93,17 @@ namespace Clifton.Controllers
             return ret;
         }
 
+        /// <summary>
+        /// A user can only change their own username and password.
+        /// </summary>
         [Authorize]
         [HttpPatch()]
         public ActionResult ChangeUsernameAndPassword(AccountRequest req)
         {
             ActionResult ret = Ok();
+            var claims = User.Identity as ClaimsIdentity;
+            var token = claims.FindFirst("token").Value;
+            svc.ChangeUsernameAndPassword(token, req);
 
             return ret;
         }

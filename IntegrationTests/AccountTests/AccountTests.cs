@@ -45,6 +45,7 @@ namespace IntegrationTests.AccountTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post("account", new { Username = "Marc", Password = "fizbin" })
                 .AndOk()
                 .Login("Marc", "fizbin")
@@ -82,7 +83,6 @@ namespace IntegrationTests.AccountTests
 
             new WorkflowPacket(URL)
                 .Login()
-                // I never use fizbin for any of my accounts, if you are wondering.
                 .Post("account", new { Username = "Marc", Password = "fizbin" })
                 .AndOk()
                 .Login("Marc", "fizbin")
@@ -90,6 +90,45 @@ namespace IntegrationTests.AccountTests
                 .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
         }
 
+        [TestMethod]
+        public void ChangeUsernameAndPasswordTest()
+        {
+            ClearAllTables();
+
+            new WorkflowPacket(URL)
+                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .Patch("account", new { Username = "Thomas", Password = "texasHoldem" })
+                .AndOk()
+                .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
+                .AndUnauthorized()
+                .Login("Thomas", "texasHoldem")
+                .AndOk();
+        }
+
+        [TestMethod]
+        public void ChangePasswordOnlyTest()
+        {
+            ClearAllTables();
+
+            new WorkflowPacket(URL)
+                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .Patch("account", new { Password = "texasHoldem" })
+                .AndOk()
+                .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
+                .AndUnauthorized()
+                .Login("Marc", "texasHoldem")
+                .AndOk();
+        }
 
         [TestMethod]
         public void DeleteAccountTest()
@@ -97,13 +136,15 @@ namespace IntegrationTests.AccountTests
             ClearAllTables();
 
             new WorkflowPacket(URL)
+                .Login()
                 .Post("account", new { Username = "Marc", Password = "fizbin" })
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
                 .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
                 .Delete("account")
-                .Login("Marc", "fizbin")
+                .AndOk()
+                .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
                 .AndUnauthorized();
         }
     }

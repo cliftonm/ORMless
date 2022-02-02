@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 
 using FluentAssertions;
@@ -43,6 +44,11 @@ namespace Clifton.IntegrationTestWorkflowEngine
         public void SetObject(string containerName, object obj)
         {
             Container[containerName] = obj;
+        }
+
+        public void Log(string msg)
+        {
+            Debug.WriteLine(msg);            
         }
     }
 }

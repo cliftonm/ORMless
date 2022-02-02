@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
 
 using Newtonsoft.Json;
@@ -39,6 +38,13 @@ namespace Clifton
             return (ret, response.StatusCode, response.Content);
         }
 
+        public static (HttpStatusCode status, string content) Patch(string url, object data, Dictionary<string, string> headers = null)
+        {
+            var response = Execute(url, Method.PATCH, data, headers);
+
+            return (response.StatusCode, response.Content);
+        }
+
         public static (T item, HttpStatusCode status, string content) Patch<T>(string url, object data, Dictionary<string, string> headers = null) where T : new()
         {
             var response = Execute(url, Method.PATCH, data, headers);
@@ -56,7 +62,6 @@ namespace Clifton
 
         private static IRestResponse Execute(string url, Method method, object data = null, Dictionary<string, string> headers = null)
         {
-            Debug.WriteLine($"{method}: {url}");
             var client = new RestClient(url);
             var request = new RestRequest(method);
             headers?.ForEach(kvp => request.AddHeader(kvp.Key, kvp.Value));

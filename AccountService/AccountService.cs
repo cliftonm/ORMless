@@ -60,15 +60,28 @@ namespace Clifton.Services
                 var user = new User() { UserName = req.Username, Password = hashedPassword, Salt = salt };
                 context.User.Add(user);
                 context.SaveChanges();
-                ok = true; 
+                ok = true;
             }
 
             return ok;
         }
 
+        public void ChangeUsernameAndPassword(string token, AccountRequest req)
+        {
+            var user = context.User.Single(u => u.AccessToken == token);
+            user.Logout();
+            user.Salt = Hasher.GenerateSalt();
+            user.UserName = req.Username ?? user.UserName;
+            user.Password = Hasher.HashPassword(user.Salt, req.Password);
+            context.SaveChanges();
+        }
+
         public void DeleteAccount(string token)
         {
-
+            var user = context.User.Single(u => u.AccessToken == token);
+            user.Logout();
+            user.Deleted = true;
+            context.SaveChanges();
         }
 
         public bool VerifyAccount(string token)

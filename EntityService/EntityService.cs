@@ -111,7 +111,7 @@ namespace Clifton.Services
         {
             var before = GetById(tableName, entityId);
             using var conn = dbSvc.GetSqlConnection();
-            conn.Execute($"delete from {tableName} where {Constants.ID} = @id", new { id = entityId });
+            conn.Execute($"delete from [{tableName}] where {Constants.ID} = @id", new { id = entityId });
             auditSvc.Insert(tableName, entityId, before, null, Constants.AUDIT_DELETE);
         }
 
@@ -176,10 +176,10 @@ namespace Clifton.Services
             var joinFields = joins?.GetJoinFields(",") ?? "";
             var joinTables = joins?.GetJoins() ?? "";
 
-            var withDeleteCheck = hasDeleted ? $"where {table}.{Constants.DELETED} = 0" : "";
+            var withDeleteCheck = hasDeleted ? $"where [{table}].{Constants.DELETED} = 0" : "";
 
             StringBuilder sb = new StringBuilder();
-            sb.Append($"select [{table}].* {joinFields} from {table} {joinTables} {withDeleteCheck}");
+            sb.Append($"select [{table}].* {joinFields} from [{table}] {joinTables} {withDeleteCheck}");
 
             return sb;
         }

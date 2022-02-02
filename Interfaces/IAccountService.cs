@@ -10,5 +10,6 @@ namespace Interfaces
         bool VerifyAccount(string token);
         void Logout(string token);
         void DeleteAccount(string token);
+        void ChangeUsernameAndPassword(string token, AccountRequest req);
     }
 }

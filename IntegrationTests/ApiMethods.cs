@@ -13,6 +13,7 @@ namespace WorkflowTestMethods
     {
         public static WorkflowPacket Get(this WorkflowPacket wp, string route)
         {
+            
             var resp = RestService.Get($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
 
@@ -26,6 +27,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket Get<T>(this WorkflowPacket wp, string name, string route) where T: new()
         {
+            wp.Log($"GET: {typeof(T).Name} {route}");
             var resp = RestService.Get<T>($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
             wp.SetObject(name, resp.item);
@@ -35,6 +37,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket Post(this WorkflowPacket wp, string route, object data)
         {
+            wp.Log($"POST: {route}");
             var resp = RestService.Post($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
 
@@ -48,9 +51,19 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket Post<T>(this WorkflowPacket wp, string name, string route, object data) where T : new()
         {
+            wp.Log($"POST: {typeof(T).Name} {route}");
             var resp = RestService.Post<T>($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
             wp.SetObject(name, resp.item);
+
+            return wp;
+        }
+
+        public static WorkflowPacket Patch(this WorkflowPacket wp, string route, object data)
+        {
+            wp.Log($"PATCH: {route}");
+            var resp = RestService.Patch($"{wp.BaseUrl}/{route}", data, wp.Headers);
+            wp.LastResponse = resp.status;
 
             return wp;
         }
@@ -62,6 +75,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket Patch<T>(this WorkflowPacket wp, string name, string route, object data) where T : new()
         {
+            wp.Log($"PATCH: {typeof(T).Name} {route}");
             var resp = RestService.Patch<T>($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
             wp.SetObject(name, resp.item);
@@ -71,6 +85,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket Delete(this WorkflowPacket wp, string route)
         {
+            wp.Log($"DELETE: {route}");
             var resp = RestService.Delete($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
 
@@ -79,6 +94,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndOk(this WorkflowPacket wp)
         {
+            wp.Log("AndOk");
             wp.LastResponse.Should().Be(HttpStatusCode.OK);
 
             return wp;
@@ -86,6 +102,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndUnauthorized(this WorkflowPacket wp)
         {
+            wp.Log("AndUnauthorized");
             wp.LastResponse.Should().Be(HttpStatusCode.Unauthorized);
 
             return wp;
@@ -93,6 +110,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndNotFound(this WorkflowPacket wp)
         {
+            wp.Log("AndNotFound");
             wp.LastResponse.Should().Be(HttpStatusCode.NotFound);
 
             return wp;
@@ -100,6 +118,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndNoContent(this WorkflowPacket wp)
         {
+            wp.Log("AndNoContent");
             wp.LastResponse.Should().Be(HttpStatusCode.NoContent);
 
             return wp;
@@ -107,6 +126,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndBadRequest(this WorkflowPacket wp)
         {
+            wp.Log("AndBadRequest");
             wp.LastResponse.Should().Be(HttpStatusCode.BadRequest);
 
             return wp;
@@ -114,6 +134,7 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket AndInternalServerError(this WorkflowPacket wp)
         {
+            wp.Log("AndInternalServerError");
             wp.LastResponse.Should().Be(HttpStatusCode.InternalServerError);
 
             return wp;
