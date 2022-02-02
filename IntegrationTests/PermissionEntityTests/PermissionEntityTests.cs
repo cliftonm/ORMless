@@ -21,7 +21,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", new Permissions() { CanCreate = true })
+                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRoll", new Permissions() { CanCreate = true })
                 .Post<Test>("entity/test", testData)
                 .AndOk()
                 .IShouldSee<Test>(t => t.ID.Should().NotBe(0));

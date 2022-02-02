@@ -6,6 +6,8 @@ using Models;
 using Models.Requests;
 using Models.Responses;
 
+// !!! The User table is intentionally not auditable !!!
+
 namespace Clifton.Services
 {
     public class AccountService : IAccountService

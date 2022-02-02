@@ -9,6 +9,7 @@ using Lib;
 
 namespace Clifton.Controllers
 {
+    // Do we want this with [Authorize] tag?
     [ApiController]
     [Route("[controller]")]
     public class MigratorController : PluginController
