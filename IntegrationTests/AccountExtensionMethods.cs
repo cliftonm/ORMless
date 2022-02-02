@@ -29,18 +29,33 @@ namespace IntegrationTests
 
         public static WorkflowPacket CreateUserAndEntityRoll(this WorkflowPacket wp, string entity, string username, string password, string roleName, Permissions permissions)
         {
+            int roleId = -1;
+            int entityId = -1;
+            int userId = -1;
+
             wp
                 .Login()
-                .Post("account", new { username, password })
+                .Post<User>("account", new { username, password })
                 .AndOk()
-                .Post<Roll>("entity/roll", new
+                .IGet<User>(u => userId = u.Id)
+                .Log($"User ID = {userId}")
+
+                .Post<Role>("entity/roll", new
                 {
                     Name = roleName,
                     CanCreate = permissions.CanCreate,
                     CanRead = permissions.CanRead,
                     CanUpdate = permissions.CanUpdate,
                     CanDelete = permissions.CanDelete,
-                });
+                })
+                .AndOk()
+                .IGet<Role>(r => roleId = r.Id)
+
+                .Post<Entity>("entity/entity", new { TableName = "Test" })
+                .AndOk()
+                .IGet<Entity>(e => entityId = e.Id);
+
+                // map EntityRole and UserRole
 
             return wp;
         }

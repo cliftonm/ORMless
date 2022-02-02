@@ -50,9 +50,11 @@ namespace Clifton.Services
             context.SaveChanges();
         }
 
-        public bool CreateAccount(AccountRequest req)
+        public (bool ok, int id) CreateAccount(AccountRequest req)
         {
             bool ok = false;
+            int id = -1;
+
             var existingUsers = context.User.Where(u => u.UserName == req.Username && !u.Deleted).Count();
 
             if (existingUsers == 0)
@@ -63,9 +65,10 @@ namespace Clifton.Services
                 context.User.Add(user);
                 context.SaveChanges();
                 ok = true;
+                id = user.Id;
             }
 
-            return ok;
+            return (ok, id);
         }
 
         public void ChangeUsernameAndPassword(string token, AccountRequest req)

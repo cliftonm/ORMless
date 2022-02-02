@@ -45,10 +45,5 @@ namespace Clifton.IntegrationTestWorkflowEngine
         {
             Container[containerName] = obj;
         }
-
-        public void Log(string msg)
-        {
-            Debug.WriteLine(msg);            
-        }
     }
 }

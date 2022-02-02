@@ -68,10 +68,15 @@ namespace Clifton.Controllers
         public ActionResult CreateAccount(AccountRequest req)
         {
             ActionResult ret = Ok();
+            var res = svc.CreateAccount(req);
 
-            if (!svc.CreateAccount(req))
+            if (!res.ok)
             { 
                 ret = BadRequest($"Username {req.Username} already exists.");
+            }       
+            else
+            {
+                ret = Ok(new { Id = res.id });
             }
 
             return ret;

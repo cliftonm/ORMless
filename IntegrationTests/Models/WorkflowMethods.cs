@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 
 using FluentAssertions;
@@ -9,6 +10,13 @@ namespace WorkflowTestMethods
 {
     public static class WorkflowMethods
     {
+        public static WorkflowPacket Log(this WorkflowPacket wp, string msg)
+        {
+            Debug.WriteLine(msg);
+
+            return wp;
+        }
+
         public static WorkflowPacket UseHeader(this WorkflowPacket wp, string key, string val)
         {
             wp.Headers = new Dictionary<string, string>() { { key, val } };
@@ -26,7 +34,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket Break(this WorkflowPacket wp)
         {
             wp.Log("Break");
-            System.Diagnostics.Debugger.Break();
+            Debugger.Break();
 
             return wp;
         }
@@ -92,7 +100,6 @@ namespace WorkflowTestMethods
 
         public static WorkflowPacket IGet<T>(this WorkflowPacket wp, Action<T> getter) where T : class
         {
-            wp.Log($"IGet {typeof(T).Name}");
             return wp.IGet(typeof(T).Name, getter);
         }
 

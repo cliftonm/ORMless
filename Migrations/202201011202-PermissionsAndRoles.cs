@@ -32,7 +32,7 @@ namespace Migrations
         public override void Up()
         {
             Create.Table("Role")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("Name").AsString().NotNullable()
                 .WithColumn("CanCreate").AsBoolean().NotNullable()
                 .WithColumn("CanRead").AsBoolean().NotNullable()
@@ -41,7 +41,7 @@ namespace Migrations
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             Create.Table("User")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("Username").AsString().NotNullable()
                 .WithColumn("Password").AsString().NotNullable()
                 
@@ -60,20 +60,20 @@ namespace Migrations
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             Create.Table("UserRole")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
-                .WithColumn("RoleID").AsInt32().NotNullable().ForeignKey("Role", "ID")
-                .WithColumn("UserID").AsInt32().NotNullable().ForeignKey("User", "ID")
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("RoleId").AsInt32().NotNullable().ForeignKey("Role", "ID")
+                .WithColumn("UserId").AsInt32().NotNullable().ForeignKey("User", "ID")
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             Create.Table("Entity")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
                 .WithColumn("TableName").AsString().NotNullable()
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             Create.Table("EntityRole")
-                .WithColumn("ID").AsInt32().PrimaryKey().Identity().NotNullable()
-                .WithColumn("RoleID").AsInt32().NotNullable().ForeignKey("Role", "ID")
-                .WithColumn("EntityID").AsInt32().NotNullable().ForeignKey("Entity", "ID")
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
+                .WithColumn("RoleId").AsInt32().NotNullable().ForeignKey("Role", "ID")
+                .WithColumn("EntityId").AsInt32().NotNullable().ForeignKey("Entity", "ID")
                 .WithColumn("Deleted").AsBoolean().NotNullable();
 
             var salt = Hasher.GenerateSalt();

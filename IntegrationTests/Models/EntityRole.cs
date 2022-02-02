@@ -5,9 +5,9 @@ namespace IntegrationTests.Models
     public class EntityRole
     {
         [Key]
-        public int ID { get; set; }
-        public int RoleID { get; set; }
-        public int EntityID { get; set; }
+        public int Id { get; set; }
+        public int RoleId { get; set; }
+        public int EntityId { get; set; }
         public bool Deleted { get; set; }
     }
 }
