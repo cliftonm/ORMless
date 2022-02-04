@@ -1,4 +1,5 @@
-﻿using Models.Requests;
+﻿using Models;
+using Models.Requests;
 using Models.Responses;
 
 namespace Interfaces
@@ -8,6 +9,7 @@ namespace Interfaces
         LoginResponse Login(AccountRequest req);
         (bool ok, int id) CreateAccount(AccountRequest req);
         bool VerifyAccount(string token);
+        User GetUser(string token);
         void Logout(string token);
         void DeleteAccount(string token);
         void ChangeUsernameAndPassword(string token, AccountRequest req);

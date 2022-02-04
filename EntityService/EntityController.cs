@@ -22,7 +22,7 @@ namespace Clifton.Controllers
         }
 
         // TODO: Pagination?
-        [Authorize]
+        [Authorize()]
         [HttpGet("{entityName}")]
         public ActionResult GetAll(string entityName)
         {
@@ -41,7 +41,7 @@ namespace Clifton.Controllers
             return ret;
         }
 
-        [Authorize]
+        [Authorize(Policy = "entityAuthorization")]
         [HttpPost("{entityName}")]
         public ActionResult Insert(string entityName, Parameters data)
         {

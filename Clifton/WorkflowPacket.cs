@@ -9,6 +9,7 @@ namespace Clifton.IntegrationTestWorkflowEngine
     public class WorkflowPacket
     {
         public HttpStatusCode LastResponse { get; set; }
+        public string LastContent { get; set; }
         public string BaseUrl { get; protected set; }
         public Dictionary<string, object> Container = new Dictionary<string, object>();
         public Dictionary<string, string> Headers = new Dictionary<string, string>();

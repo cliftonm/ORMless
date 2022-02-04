@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
@@ -37,10 +35,11 @@ namespace IntegrationTests
                 .Login()
                 .Post<User>("account", new { username, password })
                 .AndOk()
+                .IShouldSee<User>(u => u.Id.Should().NotBe(0))
                 .IGet<User>(u => userId = u.Id)
                 .Log($"User ID = {userId}")
 
-                .Post<Role>("entity/roll", new
+                .Post<Role>("entity/role", new
                 {
                     Name = roleName,
                     CanCreate = permissions.CanCreate,
@@ -49,13 +48,21 @@ namespace IntegrationTests
                     CanDelete = permissions.CanDelete,
                 })
                 .AndOk()
+                .IShouldSee<Role>(r => r.Id.Should().NotBe(0))
                 .IGet<Role>(r => roleId = r.Id)
 
                 .Post<Entity>("entity/entity", new { TableName = "Test" })
                 .AndOk()
-                .IGet<Entity>(e => entityId = e.Id);
+                .IShouldSee<Entity>(e => e.Id.Should().NotBe(0))
+                .IGet<Entity>(e => entityId = e.Id)
 
-                // map EntityRole and UserRole
+                // Map EntityRole and UserRole.
+                .Post<UserRole>("entity/userrole", new { RoleId = roleId, UserId = userId })
+                .AndOk()
+                .IShouldSee<UserRole>(ur => ur.Id.Should().NotBe(0))
+                .Post<EntityRole>("entity/entityrole", new { RoleId = roleId, EntityId = entityId })
+                .AndOk()
+                .IShouldSee<EntityRole>(er => er.Id.Should().NotBe(0));
 
             return wp;
         }

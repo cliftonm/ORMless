@@ -20,5 +20,6 @@ namespace Interfaces
         Record Update(string tableName, int entityId, Parameters parms);
         void SoftDelete(string tableName, int entityId);
         void HardDelete(string tableName, int entityId);
+        bool IsUserActionAuthorized(string entityName, int userId, string method);
     }
 }

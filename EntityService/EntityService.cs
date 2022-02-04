@@ -5,7 +5,10 @@ using System.Linq;
 using System.Text;
 
 using Dapper;
+using SqlKata.Compilers;
+using SqlKata.Execution;
 
+using Models;
 using Interfaces;
 using Lib;
 
@@ -24,6 +27,30 @@ namespace Clifton.Services
         {
             this.dbSvc = dbSvc;
             this.auditSvc = auditSvc;
+        }
+
+        public bool IsUserActionAuthorized(string entityName, int userId, string method)
+        {
+            var connection = dbSvc.GetSqlConnection();
+            var compiler = new SqlServerCompiler();
+
+            var db = new QueryFactory(connection, compiler);
+            var query = db.Query("Role")
+                .Join("UserRole", "Role.Id", "UserRole.RoleId")
+                .Join("EntityRole", "Role.Id", "EntityRole.RoleId")
+                .Join("Entity", "Entity.Id", "EntityRole.EntityId")
+                .Where("Entity.TableName", entityName)
+                .Where("UserRole.UserId", userId);
+
+            var data = query.Get<Permissions>();
+
+            bool ok = method.MatchReturn(
+                (m => m == "GET", _ => data.Any(d => d.CanRead)),
+                (m => m == "POST", _ => data.Any(d => d.CanCreate)),
+                (m => m == "PATCH", _ => data.Any(d => d.CanUpdate)),
+                (m => m == "DELETE", _ => data.Any(d => d.CanDelete)));
+
+            return ok;
         }
 
         /// <summary>

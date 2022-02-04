@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +58,16 @@ namespace Demo
 
             services
                 .AddAuthentication("tokenAuth")
-                .AddScheme<TokenAuthenticationSchemeOptions, AuthenticationService>("tokenAuth", ops => { });
+                .AddScheme<TokenAuthenticationSchemeOptions, TokenAuthenticationService>("tokenAuth", ops => { });
+
+            services
+                .AddAuthorization(options => options.AddPolicy("entityAuthorization", policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.Requirements.Add(new UserHasEntityPermission());
+                }));
+
+            services.AddScoped<IAuthorizationHandler, EntityAuthenticationService>();
 
             services.LoadPlugins(Configuration);
         }

@@ -1,4 +1,4 @@
-﻿namespace IntegrationTests.Models
+﻿namespace Models
 {
     public class Permissions
     {

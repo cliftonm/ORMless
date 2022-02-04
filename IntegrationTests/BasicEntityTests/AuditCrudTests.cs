@@ -8,6 +8,7 @@ using FluentAssertions;
 
 using Clifton.IntegrationTestWorkflowEngine;
 
+using Lib;
 using Models;
 
 using IntegrationTests.Models;

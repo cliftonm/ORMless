@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Clifton\Clifton.csproj" />
+    <ProjectReference Include="..\Lib\Lib.csproj" />
     <ProjectReference Include="..\Models\Models.csproj" />
   </ItemGroup>
 

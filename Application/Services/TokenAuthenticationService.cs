@@ -16,11 +16,11 @@ namespace Demo.Services
     {
     }
 
-    public class AuthenticationService : AuthenticationHandler<TokenAuthenticationSchemeOptions>
+    public class TokenAuthenticationService : AuthenticationHandler<TokenAuthenticationSchemeOptions>
     {
         private readonly IAccountService acctSvc;
 
-        public AuthenticationService(
+        public TokenAuthenticationService(
             IAppDbContext context,
             IAccountService accountService,
             IOptionsMonitor<TokenAuthenticationSchemeOptions> options,
@@ -28,7 +28,7 @@ namespace Demo.Services
             UrlEncoder encoder,
             ISystemClock clock) : base(options, logger, encoder, clock)
         {
-            this.acctSvc = accountService;
+            acctSvc = accountService;
         }
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -45,14 +45,20 @@ namespace Demo.Services
 
                 if (verified)
                 {
+                    var request = Request.HttpContext.Request;
+                    var basePath = $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}";
+
                     // If verified, optionally add some claims about the user...
                     var claims = new[]
                     {
                         new Claim("token", token),
+                        new Claim("url", basePath),
+                        new Claim("method", request.Method),
+                        new Claim("path", request.Path)
                     };
 
                     // Generate claimsIdentity on the name of the class:
-                    var claimsIdentity = new ClaimsIdentity(claims, nameof(AuthenticationService));
+                    var claimsIdentity = new ClaimsIdentity(claims, nameof(TokenAuthenticationService));
 
                     // Generate AuthenticationTicket from the Identity
                     // and current authentication scheme.

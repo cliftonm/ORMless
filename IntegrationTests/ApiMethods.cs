@@ -16,6 +16,7 @@ namespace WorkflowTestMethods
             
             var resp = RestService.Get($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
 
             return wp;
         }
@@ -30,6 +31,7 @@ namespace WorkflowTestMethods
             wp.Log($"GET: {typeof(T).Name} {route}");
             var resp = RestService.Get<T>($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
             wp.SetObject(name, resp.item);
 
             return wp;
@@ -40,6 +42,7 @@ namespace WorkflowTestMethods
             wp.Log($"POST: {route}");
             var resp = RestService.Post($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
 
             return wp;
         }
@@ -54,6 +57,7 @@ namespace WorkflowTestMethods
             wp.Log($"POST: {typeof(T).Name} {route}");
             var resp = RestService.Post<T>($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
             wp.SetObject(name, resp.item);
 
             return wp;
@@ -64,6 +68,7 @@ namespace WorkflowTestMethods
             wp.Log($"PATCH: {route}");
             var resp = RestService.Patch($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
 
             return wp;
         }
@@ -78,6 +83,7 @@ namespace WorkflowTestMethods
             wp.Log($"PATCH: {typeof(T).Name} {route}");
             var resp = RestService.Patch<T>($"{wp.BaseUrl}/{route}", data, wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
             wp.SetObject(name, resp.item);
 
             return wp;
@@ -88,6 +94,7 @@ namespace WorkflowTestMethods
             wp.Log($"DELETE: {route}");
             var resp = RestService.Delete($"{wp.BaseUrl}/{route}", wp.Headers);
             wp.LastResponse = resp.status;
+            wp.LastContent = resp.content;
 
             return wp;
         }
@@ -95,6 +102,12 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndOk(this WorkflowPacket wp)
         {
             wp.Log("AndOk");
+            
+            if (wp.LastResponse != HttpStatusCode.OK)
+            {
+                wp.Log(wp.LastContent);
+            }
+
             wp.LastResponse.Should().Be(HttpStatusCode.OK);
 
             return wp;
@@ -104,6 +117,14 @@ namespace WorkflowTestMethods
         {
             wp.Log("AndUnauthorized");
             wp.LastResponse.Should().Be(HttpStatusCode.Unauthorized);
+
+            return wp;
+        }
+
+        public static WorkflowPacket AndForbidden(this WorkflowPacket wp)
+        {
+            wp.Log("AndForbidden");
+            wp.LastResponse.Should().Be(HttpStatusCode.Forbidden);
 
             return wp;
         }

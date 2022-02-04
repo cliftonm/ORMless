@@ -93,12 +93,14 @@ namespace Clifton.Services
         {
             var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
 
-            if (user != null)
-            {
-
-            }
-            
             return user != null;
+        }
+
+        public User GetUser(string token)
+        {
+            var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
+
+            return user;
         }
     }
 }
