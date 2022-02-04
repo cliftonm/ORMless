@@ -68,17 +68,5 @@ namespace IntegrationTests.PermissionEntityTests
                 .Post<Test>("entity/test2", testData)
                 .AndForbidden();
         }
-
-        [TestMethod]
-        public void SysAdminBadEntityTest()
-        {
-            ClearAllTables();
-
-            var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
-                // Post something as SysAdmin
-                .Post<Test>("entity/test2", testData)
-                .AndForbidden();
-        }
     }
 }

@@ -70,6 +70,14 @@ namespace Clifton.Services
             this.auditSvc = auditSvc;
         }
 
+        public bool IsEntity(string entityName)
+        {
+            var entities = GetAll("entity", Conditions.Where().Field("TableName").Is(entityName));
+            bool isEntity = entities.Any();
+
+            return isEntity;
+        }
+
         public bool IsUserActionAuthorized(string entityName, int userId, string method)
         {
             var connection = dbSvc.GetSqlConnection();
