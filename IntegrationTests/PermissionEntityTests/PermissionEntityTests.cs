@@ -56,5 +56,29 @@ namespace IntegrationTests.PermissionEntityTests
                 .AndOk()
                 .IShouldSee<List<Test>>(data => data.Count.Should().Be(1));
         }
+
+        [TestMethod]
+        public void BadEntityTest()
+        {
+            ClearAllTables();
+
+            var wp = new WorkflowPacket(URL)
+                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .Login("Marc", "fizbin")
+                .Post<Test>("entity/test2", testData)
+                .AndForbidden();
+        }
+
+        [TestMethod]
+        public void SysAdminBadEntityTest()
+        {
+            ClearAllTables();
+
+            var wp = new WorkflowPacket(URL)
+                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                // Post something as SysAdmin
+                .Post<Test>("entity/test2", testData)
+                .AndForbidden();
+        }
     }
 }

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-using FluentAssertions;
+﻿using FluentAssertions;
 
 using Clifton;
 using Clifton.IntegrationTestWorkflowEngine;
@@ -102,12 +99,8 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndOk(this WorkflowPacket wp)
         {
             wp.Log("AndOk");
+            wp.LogInternalServerError();
             
-            if (wp.LastResponse != HttpStatusCode.OK)
-            {
-                wp.Log(wp.LastContent);
-            }
-
             wp.LastResponse.Should().Be(HttpStatusCode.OK);
 
             return wp;
@@ -116,6 +109,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndUnauthorized(this WorkflowPacket wp)
         {
             wp.Log("AndUnauthorized");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.Unauthorized);
 
             return wp;
@@ -124,6 +118,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndForbidden(this WorkflowPacket wp)
         {
             wp.Log("AndForbidden");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.Forbidden);
 
             return wp;
@@ -132,6 +127,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndNotFound(this WorkflowPacket wp)
         {
             wp.Log("AndNotFound");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.NotFound);
 
             return wp;
@@ -140,6 +136,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndNoContent(this WorkflowPacket wp)
         {
             wp.Log("AndNoContent");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.NoContent);
 
             return wp;
@@ -148,6 +145,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndBadRequest(this WorkflowPacket wp)
         {
             wp.Log("AndBadRequest");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.BadRequest);
 
             return wp;
@@ -156,6 +154,7 @@ namespace WorkflowTestMethods
         public static WorkflowPacket AndInternalServerError(this WorkflowPacket wp)
         {
             wp.Log("AndInternalServerError");
+            wp.LogInternalServerError();
             wp.LastResponse.Should().Be(HttpStatusCode.InternalServerError);
 
             return wp;

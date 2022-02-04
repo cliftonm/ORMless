@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Net;
 
 using FluentAssertions;
 
@@ -13,6 +14,16 @@ namespace WorkflowTestMethods
         public static WorkflowPacket Log(this WorkflowPacket wp, string msg)
         {
             Debug.WriteLine(msg);
+
+            return wp;
+        }
+
+        public static WorkflowPacket LogInternalServerError(this WorkflowPacket wp)
+        {
+            if (wp.LastResponse == HttpStatusCode.InternalServerError)
+            {
+                wp.Log(wp.LastContent);
+            }
 
             return wp;
         }

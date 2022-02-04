@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 
 using Dapper;
+using SqlKata;
 using SqlKata.Compilers;
 using SqlKata.Execution;
 
@@ -18,6 +19,46 @@ using Parameters = System.Collections.Generic.Dictionary<string, object>;
 
 namespace Clifton.Services
 {
+    public static class SqlKataExtensionMethods
+    {
+        public static Query Query<T>(this QueryFactory qf)
+        {
+            return qf.Query(typeof(T).Name);
+        }
+
+        public static Query Join<R, T>(this Query q)
+        {
+            var rname = typeof(R).Name;
+            var tname = typeof(T).Name; 
+
+            return q.Join($"{tname}", $"{rname}.Id", $"{tname}.{rname}Id");
+        }
+
+        public static Query JoinChild<R, T>(this Query q)
+        {
+            var rname = typeof(R).Name;
+            var tname = typeof(T).Name;
+
+            return q.Join($"{tname}", $"{tname}.Id", $"{rname}.{tname}Id");
+        }
+
+        public static Query Where<T>(this Query q, string field, object val)
+        {
+            return q.Where($"{typeof(T).Name}.{field}", val);
+        }
+    }
+
+    public class Role { }
+    public class UserRole 
+    {
+        public int UserId { get; set; }
+    }
+    public class EntityRole { }
+    public class Entity 
+    {
+        public string TableName { get; set; }
+    }
+
     public class EntityService : IEntityService
     {
         private readonly IDatabaseService dbSvc;
@@ -35,12 +76,22 @@ namespace Clifton.Services
             var compiler = new SqlServerCompiler();
 
             var db = new QueryFactory(connection, compiler);
+
+            /*
             var query = db.Query("Role")
                 .Join("UserRole", "Role.Id", "UserRole.RoleId")
                 .Join("EntityRole", "Role.Id", "EntityRole.RoleId")
                 .Join("Entity", "Entity.Id", "EntityRole.EntityId")
                 .Where("Entity.TableName", entityName)
                 .Where("UserRole.UserId", userId);
+            */
+
+            var query = db.Query<Role>()
+                .Join<Role, UserRole>()
+                .Join<Role, EntityRole>()
+                .JoinChild<EntityRole, Entity>()
+                .Where<Entity>(nameof(Entity.TableName), entityName)
+                .Where<UserRole>(nameof(UserRole.UserId), userId);
 
             var data = query.Get<Permissions>();
 

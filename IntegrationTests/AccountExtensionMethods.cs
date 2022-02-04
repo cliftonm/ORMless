@@ -51,7 +51,7 @@ namespace IntegrationTests
                 .IShouldSee<Role>(r => r.Id.Should().NotBe(0))
                 .IGet<Role>(r => roleId = r.Id)
 
-                .Post<Entity>("entity/entity", new { TableName = "Test" })
+                .Post<Entity>("entity/entity", new { TableName = entity })
                 .AndOk()
                 .IShouldSee<Entity>(e => e.Id.Should().NotBe(0))
                 .IGet<Entity>(e => entityId = e.Id)
