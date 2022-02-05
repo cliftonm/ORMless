@@ -10,8 +10,8 @@ namespace Interfaces
 {
     public interface IEntityService
     {
-        Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true);
-        List<T> GetAll<T>(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true) where T : new();
+        Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null);
+        List<T> GetAll<T>(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null) where T : new();
         Record GetSingle(string tableName, int recordId, Joins joins = null);
         Record GetSingle(string tableName, Conditions where);
         Record GetSingle(string tableName, Conditions where, Joins joins = null);
@@ -20,7 +20,7 @@ namespace Interfaces
         Record Update(string tableName, int entityId, Parameters parms);
         void SoftDelete(string tableName, int entityId);
         void HardDelete(string tableName, int entityId);
-        bool IsEntity(string entityName);
+        bool IsEntityValid(string entityName);
         bool IsUserActionAuthorized(string entityName, int userId, string method);
     }
 }

@@ -23,7 +23,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanCreate = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanCreate = true })
                 .Login("Marc", "fizbin")
                 .Post<Test>("entity/test", testData)
                 .AndOk()
@@ -36,7 +36,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
                 .Login("Marc", "fizbin")
                 .Post<Test>("entity/test", testData)
                 .AndForbidden();
@@ -48,7 +48,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
                 // Post something as SysAdmin
                 .Post<Test>("entity/test", testData)
                 .Login("Marc", "fizbin")
@@ -63,8 +63,19 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRoll("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
                 .Login("Marc", "fizbin")
+                .Post<Test>("entity/test2", testData)
+                .AndForbidden();
+        }
+
+        [TestMethod]
+        public void SysAdminBadEntityTest()
+        {
+            ClearAllTables();
+
+            var wp = new WorkflowPacket(URL)
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
                 .Post<Test>("entity/test2", testData)
                 .AndForbidden();
         }

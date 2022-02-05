@@ -42,7 +42,7 @@ namespace Demo.Services
             {
                 var entityName = path.RightOf("/entity/").LeftOf("/");
                 var user = acctSvc.GetUser(token);
-                authorized = user.IsSysAdmin || entityService.IsUserActionAuthorized(entityName, user.Id, method);
+                authorized = user.IsSysAdmin ? entityService.IsEntityValid(entityName) : entityService.IsUserActionAuthorized(entityName, user.Id, method);
             }
 
             if (authorized)

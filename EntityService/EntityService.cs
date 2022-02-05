@@ -70,12 +70,14 @@ namespace Clifton.Services
             this.auditSvc = auditSvc;
         }
 
-        public bool IsEntity(string entityName)
+        public bool IsEntityValid(string entityName)
         {
-            var entities = GetAll("entity", Conditions.Where().Field("TableName").Is(entityName));
-            bool isEntity = entities.Any();
+            // Get tables in the DB, not tables listed in the Entity table.
+            // SELECT * FROM INFORMATION_SCHEMA.TABLES 
 
-            return isEntity;
+            var recs = GetAll("TABLES", Conditions.Where().Field("TABLE_NAME").Is(entityName), hasDeleted: false, schema: "INFORMATION_SCHEMA");
+
+            return recs.Any();
         }
 
         public bool IsUserActionAuthorized(string entityName, int userId, string method)
@@ -115,16 +117,16 @@ namespace Clifton.Services
         /// <summary>
         /// Returns the DapperRow collection as a collection of IDictionary string-object pairs.
         /// </summary>
-        public Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+        public Records GetAll(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null)
         {
-            var ret = Query(tableName, null, QueryFnc, where, joins, hasDeleted).ToList();
+            var ret = Query(tableName, null, QueryFnc, where, joins, hasDeleted, schema).ToList();
 
             return ret;
         }
 
-        public List<T> GetAll<T>(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true) where T : new()
+        public List<T> GetAll<T>(string tableName, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null) where T : new()
         {
-            var ret = Query(tableName, null, QueryFnc<T>, where, joins, hasDeleted).ToList();
+            var ret = Query(tableName, null, QueryFnc<T>, where, joins, hasDeleted, schema).ToList();
 
             return ret;
         }
@@ -201,20 +203,20 @@ namespace Clifton.Services
             auditSvc.Insert(tableName, entityId, before, null, Constants.AUDIT_DELETE);
         }
 
-        private List<T> Query<T>(string tableName, int? id, Func<SqlConnection, (string sql, Parameters parms), IEnumerable<T>> query, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+        private List<T> Query<T>(string tableName, int? id, Func<SqlConnection, (string sql, Parameters parms), IEnumerable<T>> query, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null)
         {
             using var conn = dbSvc.GetSqlConnection();
-            var qinfo = SqlSelectBuilder(tableName, id, where, joins, hasDeleted);
+            var qinfo = SqlSelectBuilder(tableName, id, where, joins, hasDeleted, schema);
             var ret = query(conn, qinfo).ToList();
 
             return ret;
         }
 
-        private Records Insert(string tableName, Parameters parms, Func<SqlConnection, (string sql, Parameters parms), Records> query, Joins joins = null)
+        private Records Insert(string tableName, Parameters parms, Func<SqlConnection, (string sql, Parameters parms), Records> query)
         {
             using var conn = dbSvc.GetSqlConnection();
 
-            var qinfo = SqlInsertBuilder(tableName, parms, joins);
+            var qinfo = SqlInsertBuilder(tableName, parms);
             var ret = query(conn, qinfo).ToList();
 
             return ret;
@@ -257,22 +259,29 @@ namespace Clifton.Services
             return ret;
         }
 
-        private StringBuilder GetCoreSelect(string table, Joins joins = null, bool hasDeleted = true)
+        private StringBuilder GetCoreSelect(string table, Joins joins = null, bool hasDeleted = true, bool hasWhere = false, string schema = null)
         {
             var joinFields = joins?.GetJoinFields(",") ?? "";
             var joinTables = joins?.GetJoins() ?? "";
+            var schemaStr = String.IsNullOrEmpty(schema) ? "" : $"[{schema}].";
 
             var withDeleteCheck = hasDeleted ? $"where [{table}].{Constants.DELETED} = 0" : "";
 
             StringBuilder sb = new StringBuilder();
-            sb.Append($"select [{table}].* {joinFields} from [{table}] {joinTables} {withDeleteCheck}");
+            sb.Append($"select {schemaStr}[{table}].* {joinFields} from {schemaStr}[{table}] {joinTables} {withDeleteCheck}");
+
+            if (!hasDeleted && hasWhere)
+            {
+                // eww!
+                sb.Append(" where 1=1");
+            }
 
             return sb;
         }
 
-        private (string sql, Parameters parms) SqlSelectBuilder(string table, int? id, Conditions where = null, Joins joins = null, bool hasDeleted = true)
+        private (string sql, Parameters parms) SqlSelectBuilder(string table, int? id, Conditions where = null, Joins joins = null, bool hasDeleted = true, string schema = null)
         {
-            var sb = GetCoreSelect(table, joins, hasDeleted);
+            var sb = GetCoreSelect(table, joins, hasDeleted, where != null, schema);
 
             var parms = new Parameters();
 
@@ -287,17 +296,18 @@ namespace Clifton.Services
             return (sb.ToString(), parms);
         }
 
-        private (string sql, Parameters parms) SqlInsertSelectBuilder(string table, Conditions where = null, Joins joins = null)
+        private (string sql, Parameters parms) SqlInsertSelectBuilder(string table)
         {
-            var sb = GetCoreSelect(table, joins);
-            sb.Append($" and [{table}].{Constants.ID} in (SELECT CAST(SCOPE_IDENTITY() AS INT))");
+            // On an insert, the record will of course exist.
+            var sb = GetCoreSelect(table, hasDeleted: false);       
+            sb.Append($" where [{table}].{Constants.ID} in (SELECT CAST(SCOPE_IDENTITY() AS INT))");
 
             var parms = new Parameters();
 
             return (sb.ToString(), parms);
         }
 
-        private (string sql, Parameters parms) SqlInsertBuilder(string table, Parameters parms, Joins joins = null)
+        private (string sql, Parameters parms) SqlInsertBuilder(string table, Parameters parms)
         {
             if (parms.ContainsKey(Constants.ID))
             {
@@ -309,7 +319,7 @@ namespace Clifton.Services
             var vals = String.Join(", ", parms.Keys.Select(k => $"@{k}"));
             StringBuilder sb = new StringBuilder();
             sb.Append($"insert into [{table}] ({cols}) values ({vals});");
-            var query = SqlInsertSelectBuilder(table, joins: joins).sql;
+            var query = SqlInsertSelectBuilder(table).sql;
             sb.Append(query);
 
             return (sb.ToString(), parms);

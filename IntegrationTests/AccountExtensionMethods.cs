@@ -25,7 +25,7 @@ namespace IntegrationTests
             return wp;
         }
 
-        public static WorkflowPacket CreateUserAndEntityRoll(this WorkflowPacket wp, string entity, string username, string password, string roleName, Permissions permissions)
+        public static WorkflowPacket CreateUserAndEntityRole(this WorkflowPacket wp, string entity, string username, string password, string roleName, Permissions permissions)
         {
             int roleId = -1;
             int entityId = -1;
