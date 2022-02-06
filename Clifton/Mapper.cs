@@ -30,11 +30,6 @@ namespace Clifton
             return MapTo(source.GetType(), source, new TTarget());
         }
 
-        public static TTarget CreateMapped<TSource, TTarget>(this TSource source) where TTarget : new()
-        {
-            return source.MapTo(new TTarget());
-        }
-
         private static TTarget MapTo<TTarget>(Type tSource, object source, TTarget target)
         {
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic;

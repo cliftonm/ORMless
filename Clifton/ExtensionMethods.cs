@@ -280,9 +280,9 @@ public static string LeftOf(this string src, char c)
         {
             var dict1 = items1.ToDictionary(keySelector1);
             var k1s = dict1.Keys.Intersect(items2.Select(itm2 => keySelector2(itm2)));
-            var notIn = k1s.Select(k1 => dict1[k1]);
+            var isIn = k1s.Select(k1 => dict1[k1]);
 
-            return notIn;
+            return isIn;
         }
 
         // See Mr.PoorInglish's rework of my article here:

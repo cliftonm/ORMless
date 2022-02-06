@@ -1,0 +1,210 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Introduction</title>
+</head>
+
+<body>
+
+<h2>Introduction</h2>
+<p>This is a third rework of CPian
+<a href="https://www.codeproject.com/script/Membership/View.aspx?mid=9034900">
+DiponRoy</a>'s Tip &amp; Trick article
+<a href="https://www.codeproject.com/Tips/807820/Simple-Model-Entity-Mapper-in-Csharp">
+Simple Model/Entity Mapper in C#</a> published Sept 2, 2014.&nbsp; A
+<a href="https://www.codeproject.com/Tips/885770/Simple-Model-Entity-Mapper-in-Csharp-2">
+revision</a> was posted by Cpian
+<a href="https://www.codeproject.com/script/Membership/View.aspx?mid=10866468">
+ThiagoTane</a> on March 12, 2015.&nbsp; And of course, if you want the whole 
+kettle of fish including generated IL code for optimization, there is
+<a href="https://github.com/AutoMapper/AutoMapper">AutoMapper</a> on GitHub.</p>
+<p>The purpose of my revision is the two articles on Code Project is because I 
+just needed something simple - AutoMapper is overkill and while I appreciate the 
+IL generation, I really don't want to have to register my maps with <code>CreateMap</code> in 
+the <code>MapperConfiguration</code> object.&nbsp; I just want to map two objects something 
+when needed, with a couple bells, no whistles.&nbsp; A theme in my life seems to 
+be the KISS principle which is why I end up rolling my own so often!</p>
+<h2>Code Changes</h2>
+<p>There are several changes I made to the code:</p>
+<p>First, the mapping method CreateMapped determines the source type from the 
+this object, so instead of writing:</p>
+<pre>Student source = new Student() { Id = 1, Name = &quot;Smith&quot; };
+StudentLog newMapped = source.CreateMapped&lt;Student, StudentLog&gt;();</pre>
+<p>one can write:</p>
+<pre>Student source = new Student() { Id = 1, Name = &quot;Smith&quot; };
+StudentLog newMapped = source.CreateMapped&lt;StudentLog&gt;();</pre>
+<p>Notice that the removal of the generic parameter <code>Student</code>.</p>
+
+<p>Second, I added an attribute <code>MapperPropertyAttribute</code> that is used to specify 
+the source property when the target property is of a different name.</p>
+<p>For example, I have a class <code>User</code>:</p>
+<pre>public class User
+{
+  [Key]
+  public int Id { get; set; }
+  public string UserName { get; set; }
+  public string Password { get; set; }
+  public string Salt { get; set; }
+  public string AccessToken { get; set; }
+  public string RefreshToken { get; set; }
+  public bool IsSysAdmin { get; set; }
+  public DateTime? LastLogin { get; set; }
+  public int? ExpiresIn { get; set; }
+  public long? ExpiresOn { get; set; }
+  public bool Deleted { get; set; }
+}</pre>
+<p>but I want the login response to return a subset of properties with different 
+names.&nbsp; The <code>MapperProperty</code> is used to specify the property name conversion 
+in the target class:</p>
+<pre>public class LoginResponse
+{
+  [MapperProperty(Name = &quot;AccessToken&quot;)]
+  public string access_token { get; set; }
+
+  [MapperProperty(Name = &quot;RefreshToken&quot;)]
+  public string refresh_token { get; set; }
+
+  [MapperProperty(Name = &quot;ExpiresIn&quot;)]
+  public int expires_in { get; set; }
+
+  [MapperProperty(Name = &quot;ExpiresOn&quot;)]
+  public long expires_on { get; set; }
+
+  public string token_type { get; set; } = &quot;Bearer&quot;;
+}
+</pre>
+<p>An example use case snippet is:</p>
+<pre>var response = user.CreateMapped&lt;LoginResponse&gt;();</pre>
+<p>Third, I renamed the variable names in some places.</p>
+<h2>Implementation</h2>
+<p>The attribute is simple:</p>
+<pre>public class MapperPropertyAttribute : Attribute
+{
+  public string Name { get; set; }
+
+  public MapperPropertyAttribute() { }
+}</pre>
+<p>The extension method has been modified to provide two <code>public</code> methods which 
+share a common <code>private</code> implementation.</p>
+<pre>public static class MapExtensionMethods
+{
+  public static TTarget MapTo&lt;TSource, TTarget&gt;(this TSource source, TTarget target)
+  {
+    var ret = MapTo(source.GetType(), source, target);
+
+    return ret;
+  }
+
+  public static TTarget CreateMapped&lt;TTarget&gt;(this object source) where TTarget : new()
+  {
+    return MapTo(source.GetType(), source, new TTarget());
+  }
+
+  private static TTarget MapTo&lt;TTarget&gt;(Type tSource, object source, TTarget target)
+  {
+    const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic;
+
+    var srcFields = (from PropertyInfo aProp in tSource.GetProperties(flags)
+        where aProp.CanRead //check if prop is readable
+        select new
+        {
+            Name = aProp.Name,
+            Alias = (string)null,
+            Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
+        }).ToList();
+
+    var trgFields = (from PropertyInfo aProp in target.GetType().GetProperties(flags)
+        where aProp.CanWrite //check if prop is writeable
+        select new
+        {
+            Name = aProp.Name,
+            Alias = aProp.GetCustomAttribute&lt;MapperPropertyAttribute&gt;()?.Name,
+            Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
+        }).ToList();
+
+    var commonFields = trgFields.In(srcFields, /* T1 */ t =&gt; t.Alias ?? t.Name, /* T2 */ t =&gt; t.Name).ToList();
+
+    foreach (var field in commonFields)
+    {
+      var value = tSource.GetProperty(field.Alias ?? field.Name).GetValue(source, null);
+      PropertyInfo propertyInfos = target.GetType().GetProperty(field.Name);
+      propertyInfos.SetValue(target, value, null);
+    }
+
+    return target;
+  }
+}</pre>
+<p>The &quot;secret sauce&quot; is the addition of the <code>Alias</code> property in the 
+anonymous object being returned by the <code>select</code> statement and the 
+null resolution operator ?? to determine whether to use the aliased name or the 
+property name for the source property.&nbsp; One other interesting thing is that 
+since these are anonymous properties, assigning Alias to null requires casting 
+the null: <code>Alias = (string)null,</code> to a string.  Not something you often see.</p>
+<h3>What's that &quot;In&quot; Method?</h3>
+<p>Unfortunately, Linq's <code>IntersectBy</code> is only available in .NET 6, so I have my 
+own extension method altered from a code example courtesy
+<a href="https://www.codeproject.com/Articles/5293576/A-Performant-Items-in-List-A-that-are-not-in-List?msg=5782421#xx5782421xx">
+of a comment</a> posted by CPian
+<a href="https://www.codeproject.com/script/Membership/View.aspx?mid=1449958">
+Mr.PoorInglish</a> to another article that I wrote.&nbsp; </p>
+<pre>// See Mr.PoorInglish's rework of my article here:
+// https://www.codeproject.com/Articles/5293576/A-Performant-Items-in-List-A-that-are-not-in-List?msg=5782421#xx5782421xx
+public static IEnumerable&lt;T1&gt; In&lt;T1, T2, TKey&gt;(
+  this IEnumerable&lt;T1&gt; items1,
+  IEnumerable&lt;T2&gt; items2,
+  Func&lt;T1, TKey&gt; keySelector1, Func&lt;T2, TKey&gt; keySelector2)
+  {
+    var dict1 = items1.ToDictionary(keySelector1);
+    var k1s = dict1.Keys.Intersect(items2.Select(itm2 =&gt; keySelector2(itm2)));
+    var isIn = k1s.Select(k1 =&gt; dict1[k1]);
+
+  return isIn;
+}</pre>
+<p>Furthermore, .NET 6 implementation of <code>IntersectedBy</code> is really not the signature 
+I want, and I don't want to implement an <code>iEqualityComparer</code> so we'll 
+go with the extension method above.</p>
+<h2>A Simple Test Program</h2>
+<p>The download for this article has a sample program you can run that 
+demonstrates this version of the mapper:</p>
+<pre>public static void Main()
+{
+  // We declare the epoch to be 1/1/1970.
+  var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+  var expiresSeconds = 24 * 60 * 60;
+
+  var user = new User()
+  {
+    Id = 1,
+    UserName = &quot;fubar&quot;,
+    Password = &quot;fizbin&quot;,
+    Salt = &quot;pepper&quot;,
+    AccessToken = Guid.NewGuid().ToString(),
+    RefreshToken = Guid.NewGuid().ToString(),
+    ExpiresIn = expiresSeconds,
+    ExpiresOn = ts + expiresSeconds,
+    LastLogin = DateTime.Now,
+  };
+
+  var response = user.CreateMapped&lt;LoginResponse&gt;();
+
+  Console.WriteLine($&quot;access_token: {response.access_token}&quot;);
+  Console.WriteLine($&quot;refresh_token: {response.refresh_token}&quot;);
+  Console.WriteLine($&quot;expires_in: {response.expires_in}&quot;);
+  Console.WriteLine($&quot;expires_on: {response.expires_on}&quot;);
+  Console.WriteLine($&quot;token_type: {response.token_type}&quot;);
+}</pre>
+<p>Output:</p>
+<pre>access_token: 86384067-9193-449a-a6ff-8023be5fe203
+refresh_token: 12e04d46-882e-4a25-a777-d1440f4783cd
+expires_in: 86400
+expires_on: 1644175047
+token_type: Bearer</pre>
+<h2>Conclusion</h2>
+<p>Not much to conclude here - all this is is a third incarnation of a short Tip 
+&amp; Trick written almost 8 years ago!</p>
+
+</body>
+
+</html>

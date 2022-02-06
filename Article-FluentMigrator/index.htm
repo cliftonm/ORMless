@@ -1,0 +1,388 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Introduction</title>
+</head>
+
+<body>
+
+<div id="toc"><ul><li><a href="#0">Introduction</a></li><li><a href="#1">An Example Migration</a></li><ul><li><a href="#2">Some Best Practices</a></li></ul><li><a href="#3">The Code</a></li><ul><li><a href="#4">Package Dependencies</a></li><li><a href="#5">Program Startup</a></li><li><a href="#6">Application Settings</a></li><li><a href="#7">The Controller</a></li><li><a href="#8">The Service</a></li></ul><li><a href="#9">Seeing Fluent Migrator in Action</a></li><ul><li><a href="#10">Migrate Up</a></li><li><a href="#11">View Migrations</a></li><li><a href="#12">Migrate Down</a></li><li><a href="#13">Error Reporting</a></li></ul><li><a href="#14">Conclusion</a></li></ul></div>
+<h2><a name="0">Introduction</a></h2>
+<p>I find <a href="https://fluentmigrator.github.io/">FluentMigrator</a> to be a 
+great tool for making revisions to a database.&nbsp; It's an easy to learn 
+"fluent" syntax and accommodates 90% of what I need to do, and if there's 
+something unique that needs to be done it provides an <code>Execute</code> method for custom 
+SQL operations.&nbsp; As I find it useful to provide web API endpoints for 
+performing migrations and checking on the migration version, this article is 
+about how to do that in .NET 6.&nbsp; The same controller and service works with 
+.NET Core 3.1 as well, the only difference would be in the program / startup 
+configuration.</p>
+<h2><a name="1">An Example Migration</a></h2>
+<p>The syntax of Fluent Migrator is described on their
+<a href="https://fluentmigrator.github.io/articles/intro.html">intro page</a> so 
+I will provide here only an simple example of an "up" and a "down" migration.</p>
+<pre>using FluentMigrator;
+
+namespace Clifton
+{
+  [Migration(202201011201)]
+  public class _202201011201_CreateTables : Migration
+  {
+    public override void Up()
+    {
+      Create.Table("Test")
+        .WithColumn("Id").AsInt32().PrimaryKey().Identity().NotNullable()
+        .WithColumn("IntField").AsInt32().Nullable()
+        .WithColumn("StringField").AsString().Nullable()
+        .WithColumn("DateField").AsDate().Nullable()
+        .WithColumn("DateTimeField").AsDateTime().Nullable()
+        .WithColumn("TimeField").AsTime().Nullable()
+        .WithColumn("BitField").AsBoolean().Nullable()
+        .WithColumn("Deleted").AsBoolean().NotNullable();
+    }
+
+    public override void Down()
+    {
+      Delete.Table("Test");
+    }
+  }
+}</pre>
+<h3><a name="2">Some Best Practices</a></h3>
+<ol>
+	<li>Number the migration version using yyyyMMddhhmm format as this keeps 
+	your migrations in sequential order.</li>
+	<li>To help organize your migrations for a product that has a long 
+	life-cycle and is undergoing improvements over time, consider adding a 
+	folder for the year and sub-folders for each month of the year.</li>
+	<li>A migration should ideally operate on only one table or view.&nbsp; 
+	Certainly multiple operations, such as creating columns, can be done, but 
+	consider writing multiple-table migrations as separate migrations.&nbsp; The 
+	main reason for doing this is that it helps to isolate what migration 
+	failed.</li>
+	<li>I am not religious about writing "down" migrations -- I rarely, if ever, 
+	have had to revert to a migration.&nbsp; However, your use case might be 
+	different.</li>
+	<li>Give your migration files a distinctive name that describes the reason 
+	for the migration.&nbsp; This is another good reason to keep multi-table 
+	migrations separate, as the reason for touching one table might be different 
+	for other tables.</li>
+</ol>
+<h2><a name="3">The Code</a></h2>
+<p>Adding Fluent Migrator takes a wee bit of work.&nbsp; I prefer to have my 
+migrations in a separate assembly rather than the main web API application.&nbsp; 
+I also want to capture any errors, and oddly, Fluent Migrator doesn't make this 
+easy to do -- I was not able to figure out how to add a different logger than 
+what is provided with Fluent Migrator and one would think that they would at 
+least provide a stream logger!&nbsp; The other thing that Fluent Migrator is 
+missing is the ability to create the database, so you'll see how that's 
+implemented separately.</p>
+<h3><a name="4">Package Dependencies</a></h3>
+<p>The following packages are used:</p>
+<p><img border="0" src="dependencies.png" width="347" height="154"></p>
+<p><a href="https://dapperlib.github.io/Dapper/">Dapper</a>, 
+System.Data.SqlClient, and <a href="https://www.newtonsoft.com/json">
+Newtonsoft.Json</a> are essentially one-offs for the following reasons:</p>
+<ul>
+	<li>Dapper - simply for the convenience of checking if the database already 
+	exists and creating it if it doesn't.</li>
+<li>System.Data.SqlClient - because this is what Dapper uses.</li>
+<li>Newtonsoft.Json - because Newtonsoft.Json is so much better than 
+System.Text.Json</li>
+</ul>
+<h3><a name="5">Program Startup</a></h3>
+<p>It's going to take me a while to get used to .NET 6.&nbsp; The first thing I 
+did was disable that nullable nightmare in the .csproj:</p>
+<pre>&lt;Nullable&gt;disable&lt;/Nullable&gt;</pre>
+<p>And I'm still getting used to implicit <code>using</code>s and not having <code>namespace</code>s and a 
+<code>Main</code>.&nbsp; That said, here's the <code>Program.cs</code> file:</p>
+<pre>using System.Reflection;
+
+using Microsoft.EntityFrameworkCore;
+
+using FluentMigrator.Runner;
+using Newtonsoft.Json;
+
+using Clifton;
+using Interfaces;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var appSettings = new AppSettings();
+builder.Configuration.Bind(appSettings);
+
+builder.Services.AddControllers()
+  .AddNewtonsoftJson(options =&gt;
+  {
+    options.SerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
+    options.SerializerSettings.Formatting = Formatting.Indented;
+  });
+
+var connection = builder.Configuration.GetConnectionString(appSettings.UseDatabase);
+builder.Services.AddDbContext&lt;AppDbContext&gt;(options =&gt; options.UseSqlServer(connection));
+
+builder.Services.AddScoped&lt;IMigratorService, MigratorService&gt;();
+
+string migrationAssemblyPath = Path.Combine(appSettings.ExecutingAssembly.Location.LeftOfRightmostOf("\\"), appSettings.MigrationAssembly);
+Assembly migrationAssembly = Assembly.LoadFrom(migrationAssemblyPath);
+
+builder.Services.AddFluentMigratorCore()
+  .ConfigureRunner(rb =&gt; rb
+    .AddSqlServer()
+    .WithGlobalConnectionString(connection)
+    .ScanIn(migrationAssembly).For.Migrations())
+    .AddLogging(lb =&gt; lb.AddFluentMigratorConsole());
+
+var app = builder.Build();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();</pre>
+<p>Besides the boilerplate, here we see that I'm adding the <code>NewtonsoftJson</code> controller, which 
+I'm doing for the purposes of setting a couple options, including indented 
+formatting so for purposes of this article, the JSON being returned is nicely 
+formatted in the browser.</p>
+<p>We also see that the <code>MigratorService</code> is added, as well as the <code>FluentMigratorCore</code> service and 
+its configuration.</p>
+<p>Notice the <code>ScanIn</code> call - this is important because it tells Fluent Migrator 
+what assembly to scan for classes implementing the <code>Migration</code> attribute and base class.</p>
+<h3><a name="6">Application Settings</a></h3>
+<p>The configuration comes from the <code>appsettings.json</code> file, so we have an 
+<code>AppSettings</code> class to which the JSON configuration is bound:</p>
+<pre>using System.Reflection;
+
+namespace Clifton
+{
+  public class AppSettings
+  {
+    public static AppSettings Settings { get; set; }
+    public string UseDatabase { get; set; }
+    public string MigrationAssembly { get; set; }
+    public Assembly ExecutingAssembly =&gt; Assembly.GetExecutingAssembly();
+
+    public AppSettings()
+    {
+      Settings = this;
+    }
+  }
+}</pre>
+<p>In <code>appsettings.json</code>, we have these declarations:</p>
+<pre>"UseDatabase": "DefaultConnection",
+"MigrationAssembly": "Migrations.dll",
+
+"ConnectionStrings": {
+  "DefaultConnection": "Server=localhost;Database=Test;Integrated Security=True;",
+  "MasterConnection": "Server=localhost;Database=master;Integrated Security=True;"
+}</pre>
+<ul>
+	<li>UseDatabase: In case you want to support different database connections 
+	for testing, development, production, etc.</li>
+	<li>MigrationAssembly: The name of the assembly holding the migrations.</li>
+	<li>MasterConnection: This is hard-coded in the migrator service and is used 
+	to check if the database exists and create it if it doesn't exit.</li>
+</ul>
+<h3><a name="7">The Controller</a></h3>
+<p>The controller implements:</p>
+<ol>
+	<li>A migrate up endpoint.</li>
+	<li>A migrate down endpoint.</li>
+	<li>An endpoint to list all migrations.</li>
+	<li>An endpoint to get the version of our controller/service, which I find 
+	useful simply to make sure that the API is working.</li>
+</ol>
+<pre>using Microsoft.AspNetCore.Mvc;
+
+using Interfaces;
+
+namespace Clifton
+{
+  [ApiController]
+  [Route("[controller]")]
+  public class MigratorController : ControllerBase
+  {
+    private readonly IMigratorService ms;
+    private readonly AppDbContext context;
+
+    public MigratorController(IMigratorService ms, AppDbContext context)
+    {
+      this.ms = ms;
+      this.context = context;
+    }
+
+    [HttpGet]
+    public ActionResult Version()
+    {
+      return Ok(new { Version = "1.00" });
+    }
+
+    [HttpGet("VersionInfo")]
+    public ActionResult VersionInfo()
+    {
+      var recs = context.VersionInfo.OrderByDescending(v =&gt; v.Version);
+
+      return Ok(recs);
+    }
+
+    [HttpGet("MigrateUp")]
+    public ActionResult MigrateUp()
+    {
+      var resp = ms.MigrateUp();
+
+      return Ok(resp);
+    }
+
+    [HttpGet("MigrateDown/{version}")]
+    public ActionResult MigrateDown(long version)
+    {
+      var resp = ms.MigrateDown(version);
+
+      return Ok(resp);
+    }
+  }
+}
+</pre>
+<h3><a name="8">The Service</a></h3>
+<p>The service implements the migration behavior for the migrate up and migrate 
+down endpoints.</p>
+<pre>using System.Data.SqlClient;
+using System.Text;
+
+using Dapper;
+using FluentMigrator.Runner;
+
+using Interfaces;
+
+namespace Clifton
+{
+  public class MigratorService : IMigratorService
+  {
+    private IMigrationRunner runner;
+    private IConfiguration cfg;
+
+    public MigratorService(IMigrationRunner runner, IConfiguration cfg)
+    {
+      this.runner = runner;
+      this.cfg = cfg;
+    }
+
+    public string MigrateUp()
+    {
+      EnsureDatabase();
+
+      var errs = ConsoleHook(() =&gt; runner.MigrateUp());
+      var result = String.IsNullOrEmpty(errs) ? "Success" : errs;
+
+      return result;
+    }
+
+    // Migrate down *to* the version.
+    // If you want to migrate down the first migration, use any version # prior to that first migration.
+    public string MigrateDown(long version)
+    {
+      var errs = ConsoleHook(() =&gt; runner.MigrateDown(version));
+      var result = String.IsNullOrEmpty(errs) ? "Success" : errs;
+
+      return result;
+    }
+
+    private void EnsureDatabase()
+    {
+      var cs = cfg.GetConnectionString(AppSettings.Settings.UseDatabase);
+      var dbName = cs.RightOf("Database=").LeftOf(";");
+      var master = cfg.GetConnectionString("MasterConnection");
+
+      var parameters = new DynamicParameters();
+      parameters.Add("name", dbName);
+      using var connection = new SqlConnection(master);
+      var records = connection.Query("SELECT name FROM sys.databases WHERE name = @name", parameters);
+
+      if (!records.Any())
+      {
+        connection.Execute($"CREATE DATABASE [{dbName}]");
+      }
+    }
+
+    private string ConsoleHook(Action action)
+    {
+      var saved = Console.Out;
+      var sb = new StringBuilder();
+      var tw = new StringWriter(sb);
+      Console.SetOut(tw);
+
+      try
+      {
+        action();
+      }
+      catch(Exception ex)
+      {
+        Console.WriteLine(ex.Message);
+      }
+
+      tw.Close();
+
+      // Restore the default console out.
+      Console.SetOut(saved);
+
+      var errs = sb.ToString();
+
+      return errs;
+    }
+  }
+}</pre>
+<p>The interesting things about the code above is:</p>
+<ol>
+	<li>The <code>EnsureDatabase</code> method which queries the system table <code>databases</code> to 
+	see if the database exists and create it if it doesn't.</li>
+<li>The console hook, which capture the console output into a stream that writes 
+to a <code>StringBuilder</code>.</li>
+	<li>Oddly, some errors are handled by Fluent Migrator and do not throw an 
+	exception, other errors do throw an exception, at least from what I've seen.&nbsp; 
+	So the exception handler writes the exception message to the console to be 
+	captured by the <code>StringBuilder</code> stream.&nbsp; In older versions 
+	of Fluent Migrator, there used to be a way to suppress exceptions but I 
+	can't find where that configuration option went.</li>
+</ol>
+<h2><a name="9">Seeing Fluent Migrator in Action</a></h2>
+<h3><a name="10">Migrate Up</a></h3>
+<p>Using the example migration at the beginning of this article, we can update 
+the database to the most current migration (well, we only have one) using the 
+endpoint (your port may be different in Visual Studio):</p>
+<pre>localhost:5000/migrator/migrateup</pre>
+<p>and we see:</p>
+<p><img border="0" src="migrate1.png" width="416" height="67"></p>
+<h3><a name="11">View Migrations</a></h3>
+<p>We can inspect the migrations (again, there's only one) using:</p>
+<pre>localhost:5000/migrator/versioninfo</pre>
+<p>and we see:</p>
+<p><img border="0" src="migrate2.png" width="424" height="164"></p>
+<p>And yes, we see that the <code>Test</code> database and <code>Test</code> table were created:</p>
+<p><img border="0" src="migrate3.png" width="207" height="167"></p>
+<p>Also note that the table <code>VersionInfo</code> was created automatically by Fluent 
+Migrator.</p>
+<p>And yes, the columns were created in the <code>Test</code> table as well:</p>
+<p><img border="0" src="migrate4.png" width="260" height="183"></p>
+<h3><a name="12">Migrate Down</a></h3>
+<p>We can migrate down to a specific version as well.&nbsp; If we want to 
+migrate down to <i>before</i> the first migration we simply using an earlier 
+migration version number:</p>
+<pre>http://localhost:5000/migrator/migratedown/202101011201</pre>
+<p>Refreshing the tables in SSMS, we see that the table Test has been removed:</p>
+<p><img border="0" src="migrate5.png" width="209" height="149"></p>
+<h3><a name="13">Error Reporting</a></h3>
+<p>Errors are reported not as an exception but simply as a return string.&nbsp; 
+For example, here I deleted the <code>VersionInfo</code> record so that Fluent Migrator 
+thinks the migration hasn't been run, but the table already exists, which forces 
+an error:</p>
+<p><img border="0" src="migrate6.png" width="669" height="134"></p>
+<p>You may want to wrap the success and error status in an actual JSON object.</p>
+<h2><a name="14">Conclusion</a></h2>
+<p>Implementing database migrations as an endpoint in a web API makes it easy to 
+run migrations, as opposed to running a separate migration application.&nbsp; 
+This is useful in all environments -- your locally hosted development 
+environment as well as test, QA, and production environments.&nbsp; It should be 
+noted that one would probably add authentication / authorization to the 
+controller endpoints -- you certainly do not want someone inadvertently 
+migrating a production database all the way down to day 0!</p>
+</body>
+
+</html>

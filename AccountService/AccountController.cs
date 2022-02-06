@@ -41,10 +41,10 @@ namespace Clifton.Controllers
         }
 
         [AllowAnonymous]
-        [HttpPost("Refresh")]
-        public ActionResult Refresh(AccountRequest req)
+        [HttpPost("Refresh/{refresh_token}")]
+        public ActionResult Refresh(string refresh_token)
         {
-            var resp = svc.Login(req);
+            var resp = svc.Refresh(refresh_token);
 
             var ret = resp == null ? (ActionResult)Unauthorized("User not found.") : Ok(resp);
 

@@ -15,5 +15,8 @@
         public const string AUDIT_INSERT = "Insert";
         public const string AUDIT_UPDATE = "Update";
         public const string AUDIT_DELETE = "Delete";
+
+        public const int ONE_DAY_IN_SECONDS = 24 * 60 * 60;
+        public const int REFRESH_VALID_DAYS = 90;
     }
 }

@@ -2,6 +2,7 @@
 using System.Linq;
 
 using Interfaces;
+using Lib;
 using Models;
 using Models.Requests;
 using Models.Responses;
@@ -32,12 +33,39 @@ namespace Clifton.Services
             {
                 var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;   // We declare the epoch to be 1/1/1970.
                 user.AccessToken = Guid.NewGuid().ToString();
-                user.RefreshToken = Guid.NewGuid().ToString();  // Valid for 90 days
-                user.ExpiresIn = 24 * 60 * 60;
+                user.RefreshToken = Guid.NewGuid().ToString();
+                user.ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
                 user.ExpiresOn = ts + user.ExpiresIn;
                 user.LastLogin = DateTime.Now;
                 context.SaveChanges();
                 response = user.CreateMapped<LoginResponse>();
+            }
+
+            return response;
+        }
+
+        public LoginResponse Refresh(string refreshToken)
+        {
+            LoginResponse response = null;
+
+            var user = context.User
+                .Where(u => u.RefreshToken == refreshToken && u.Deleted == false).SingleOrDefault();
+
+            if (user != null)
+            {
+                var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;   // We declare the epoch to be 1/1/1970.
+
+                // Refresh token expires 90 days after when user logged in, thus ExpiresOn + (90 - 1) days
+                if (user.ExpiresOn + (Constants.REFRESH_VALID_DAYS - 1) * Constants.ONE_DAY_IN_SECONDS > ts)
+                {
+                    user.AccessToken = Guid.NewGuid().ToString();
+                    user.RefreshToken = Guid.NewGuid().ToString();  // Valid for 90 days
+                    user.ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
+                    user.ExpiresOn = ts + user.ExpiresIn;
+                    user.LastLogin = DateTime.Now;
+                    context.SaveChanges();
+                    response = user.CreateMapped<LoginResponse>();
+                }
             }
 
             return response;
@@ -92,6 +120,8 @@ namespace Clifton.Services
         public bool VerifyAccount(string token)
         {
             var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
+
+            // TODO: Check if expired
 
             return user != null;
         }
