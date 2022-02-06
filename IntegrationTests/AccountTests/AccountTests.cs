@@ -147,5 +147,64 @@ namespace IntegrationTests.AccountTests
                 .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
                 .AndUnauthorized();
         }
+
+        [TestMethod]
+        public void RefreshTokenTest()
+        {
+            ClearAllTables();
+            LoginResponse resp = null;
+
+            new WorkflowPacket(URL)
+                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IGet<LoginResponse>(r => resp = r)
+                .Post($"account/refresh/{resp.refresh_token}", null)
+                .AndOk();
+        }
+
+        [TestMethod]
+        public void ExpiredTokenTest()
+        {
+            ClearAllTables();
+
+            new WorkflowPacket(URL)
+                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .Post("account/expireToken", null)
+                .AndOk()
+                .Post("account/logout", null)
+
+                // Do something that requires authorization.
+                .AndUnauthorized();
+        }
+
+        [TestMethod]
+        public void ExpiredRefreshTokenTest()
+        {
+            ClearAllTables();
+            LoginResponse resp = null;
+
+            new WorkflowPacket(URL)
+                .Login()
+                .Post("account", new { Username = "Marc", Password = "fizbin" })
+                .AndOk()
+                .Login("Marc", "fizbin")
+                .AndOk()
+                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IGet<LoginResponse>(r => resp = r)
+
+                .Post("account/expireRefreshToken", null)
+                .AndOk()
+
+                .Post($"account/refresh/{resp.refresh_token}", null)
+                .AndUnauthorized();
+        }
     }
 }

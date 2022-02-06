@@ -41,10 +41,10 @@ namespace Clifton.Controllers
         }
 
         [AllowAnonymous]
-        [HttpPost("Refresh/{refresh_token}")]
-        public ActionResult Refresh(string refresh_token)
+        [HttpPost("Refresh/{refreshToken}")]
+        public ActionResult Refresh(string refreshToken)
         {
-            var resp = svc.Refresh(refresh_token);
+            var resp = svc.Refresh(refreshToken);
 
             var ret = resp == null ? (ActionResult)Unauthorized("User not found.") : Ok(resp);
 
@@ -55,9 +55,7 @@ namespace Clifton.Controllers
         [HttpPost("Logout")]
         public ActionResult Logout()
         {
-            var claims = User.Identity as ClaimsIdentity;
-            var token = claims.FindFirst("token").Value;
-
+            var token = GetToken();
             svc.Logout(token);
 
             return Ok();
@@ -67,7 +65,8 @@ namespace Clifton.Controllers
         [HttpPost()]
         public ActionResult CreateAccount(AccountRequest req)
         {
-            ActionResult ret = Ok();
+            ActionResult ret;
+
             var res = svc.CreateAccount(req);
 
             if (!res.ok)
@@ -84,6 +83,7 @@ namespace Clifton.Controllers
 
         /// <summary>
         /// A user can only delete their own account.  
+        /// This logs out the user.
         /// </summary>
         [Authorize]
         [HttpDelete()]
@@ -91,26 +91,57 @@ namespace Clifton.Controllers
         {
             ActionResult ret = Ok();
 
-            var claims = User.Identity as ClaimsIdentity;
-            var token = claims.FindFirst("token").Value;
+            var token = GetToken();
             svc.DeleteAccount(token);
 
             return ret;
         }
 
         /// <summary>
-        /// A user can only change their own username and password.
+        /// A user can only change their own username and/or password.
+        /// This logs out the user.
         /// </summary>
         [Authorize]
         [HttpPatch()]
         public ActionResult ChangeUsernameAndPassword(AccountRequest req)
         {
             ActionResult ret = Ok();
-            var claims = User.Identity as ClaimsIdentity;
-            var token = claims.FindFirst("token").Value;
+            
+            var token = GetToken();
             svc.ChangeUsernameAndPassword(token, req);
 
             return ret;
         }
+
+        private string GetToken()
+        {
+            var claims = User.Identity as ClaimsIdentity;
+            var token = claims.FindFirst("token").Value;
+
+            return token;
+        }
+
+        // ---- for integration tests ----
+#if DEBUG
+        [Authorize]
+        [HttpPost("expireToken")]
+        public ActionResult ExpireToken()
+        {
+            var token = GetToken();
+            svc.ExpireToken(token);
+
+            return Ok();
+        }
+
+        [Authorize]
+        [HttpPost("expireRefreshToken")]
+        public ActionResult ExpireRefreshToken()
+        {
+            var token = GetToken();
+            svc.ExpireRefreshToken(token);
+
+            return Ok();
+        }
+#endif
     }
 }

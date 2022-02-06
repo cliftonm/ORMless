@@ -20,7 +20,10 @@ namespace Demo.Classes
             {
                 Assembly assembly = Assembly.LoadFrom(p.Path);
                 var part = new AssemblyPart(assembly);
-                services.AddControllers().PartManager.ApplicationParts.Add(part);
+                // services.AddControllers().PartManager.ApplicationParts.Add(part);
+                // Correction from Colin O'Keefe so that things like customizing the routing or API versioning works,
+                // which gets ignored using the above commented out AddControllers line.
+                services.AddControllersWithViews().ConfigureApplicationPartManager(apm => apm.ApplicationParts.Add(part));
 
                 var atypes = assembly.GetTypes();
                 var pluginClass = atypes.SingleOrDefault(t => t.GetInterface(nameof(IPlugin)) != null);

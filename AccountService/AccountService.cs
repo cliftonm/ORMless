@@ -31,7 +31,7 @@ namespace Clifton.Services
 
             if (user != null)
             {
-                var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;   // We declare the epoch to be 1/1/1970.
+                var ts = GetEpoch();
                 user.AccessToken = Guid.NewGuid().ToString();
                 user.RefreshToken = Guid.NewGuid().ToString();
                 user.ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
@@ -53,7 +53,7 @@ namespace Clifton.Services
 
             if (user != null)
             {
-                var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;   // We declare the epoch to be 1/1/1970.
+                var ts = GetEpoch();
 
                 // Refresh token expires 90 days after when user logged in, thus ExpiresOn + (90 - 1) days
                 if (user.ExpiresOn + (Constants.REFRESH_VALID_DAYS - 1) * Constants.ONE_DAY_IN_SECONDS > ts)
@@ -69,6 +69,15 @@ namespace Clifton.Services
             }
 
             return response;
+        }
+
+        public bool VerifyAccount(string token)
+        {
+            var user = context.User.Where(u => u.AccessToken == token).SingleOrDefault();
+            var ts = GetEpoch();
+            bool ok = (user?.ExpiresOn ?? 0) > ts;
+
+            return ok;
         }
 
         public void Logout(string token)
@@ -117,20 +126,34 @@ namespace Clifton.Services
             context.SaveChanges();
         }
 
-        public bool VerifyAccount(string token)
-        {
-            var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
-
-            // TODO: Check if expired
-
-            return user != null;
-        }
-
         public User GetUser(string token)
         {
-            var user = context.User.Where(u => u.AccessToken == token).FirstOrDefault();
+            var user = context.User.SingleOrDefault(u => u.AccessToken == token);
 
             return user;
+        }
+
+        public void ExpireToken(string token)
+        {
+            var ts = GetEpoch();
+            var user = context.User.SingleOrDefault(u => u.AccessToken == token);
+            user.ExpiresOn = ts - Constants.ONE_DAY_IN_SECONDS;
+            context.SaveChanges();
+        }
+
+        public void ExpireRefreshToken(string token)
+        {
+            var ts = GetEpoch();
+            var user = context.User.SingleOrDefault(u => u.AccessToken == token);
+            user.ExpiresOn = ts - Constants.REFRESH_VALID_DAYS * Constants.ONE_DAY_IN_SECONDS;
+            context.SaveChanges();
+        }
+
+        private long GetEpoch()
+        {
+            var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;   // We declare the epoch to be 1/1/1970.
+
+            return ts;
         }
     }
 }

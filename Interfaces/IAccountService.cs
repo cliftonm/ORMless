@@ -14,5 +14,8 @@ namespace Interfaces
         void Logout(string token);
         void DeleteAccount(string token);
         void ChangeUsernameAndPassword(string token, AccountRequest req);
+
+        void ExpireToken(string token);
+        void ExpireRefreshToken(string token);
     }
 }
