@@ -26,7 +26,7 @@ namespace IntegrationTests.AccountTests
             new WorkflowPacket(URL)
                 .Login()
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull());
         }
 
         [TestMethod]
@@ -50,7 +50,7 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .Post("account/logout", null)
                 .AndOk()
 
@@ -87,7 +87,7 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull());
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull());
         }
 
         [TestMethod]
@@ -101,7 +101,7 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .Patch("account", new { Username = "Thomas", Password = "texasHoldem" })
                 .AndOk()
                 .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
@@ -121,7 +121,7 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .Patch("account", new { Password = "texasHoldem" })
                 .AndOk()
                 .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
@@ -141,7 +141,7 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .Delete("account")
                 .AndOk()
                 .Post<LoginResponse>("account/login", new { Username = "Marc", Password = "fizbin" })
@@ -160,9 +160,9 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .IGet<LoginResponse>(r => resp = r)
-                .Post($"account/refresh/{resp.refresh_token}", null)
+                .Post($"account/refresh/{resp.RefreshToken}", null)
                 .AndOk();
         }
 
@@ -197,13 +197,13 @@ namespace IntegrationTests.AccountTests
                 .AndOk()
                 .Login("Marc", "fizbin")
                 .AndOk()
-                .IShouldSee<LoginResponse>(r => r.access_token.Should().NotBeNull())
+                .IShouldSee<LoginResponse>(r => r.AccessToken.Should().NotBeNull())
                 .IGet<LoginResponse>(r => resp = r)
 
                 .Post("account/expireRefreshToken", null)
                 .AndOk()
 
-                .Post($"account/refresh/{resp.refresh_token}", null)
+                .Post($"account/refresh/{resp.RefreshToken}", null)
                 .AndUnauthorized();
         }
     }

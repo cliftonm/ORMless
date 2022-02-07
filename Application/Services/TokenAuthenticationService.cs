@@ -21,7 +21,6 @@ namespace Demo.Services
         private readonly IAccountService acctSvc;
 
         public TokenAuthenticationService(
-            IAppDbContext context,
             IAccountService accountService,
             IOptionsMonitor<TokenAuthenticationSchemeOptions> options,
             ILoggerFactory logger,

@@ -19,7 +19,7 @@ namespace IntegrationTests
             wp
                 .Post<LoginResponse>("account/login", new { username, password })
                 .AndOk()
-                .Then(wp => token = wp.GetObject<LoginResponse>().access_token)
+                .Then(wp => token = wp.GetObject<LoginResponse>().AccessToken)
                 .UseHeader("Authorization", $"Bearer {token}");
 
             return wp;
