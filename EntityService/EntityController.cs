@@ -22,7 +22,7 @@ namespace Clifton.Controllers
         }
 
         // TODO: Pagination?
-        [Authorize()]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpGet("{entityName}")]
         public ActionResult GetAll(string entityName)
         {
@@ -31,7 +31,7 @@ namespace Clifton.Controllers
             return Ok(result);
         }
 
-        [Authorize]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpGet("{entityName}/{entityId}")]
         public ActionResult GetById(string entityName, int entityId)
         {
@@ -41,7 +41,7 @@ namespace Clifton.Controllers
             return ret;
         }
 
-        [Authorize(Policy = "entityAuthorization")]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpPost("{entityName}")]
         public ActionResult Insert(string entityName, Parameters data)
         {
@@ -50,7 +50,7 @@ namespace Clifton.Controllers
             return Ok(result);
         }
 
-        [Authorize]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpPatch("{entityName}/{entityId}")]
         public ActionResult Update(string entityName, int entityId, Parameters data)
         {
@@ -64,7 +64,7 @@ namespace Clifton.Controllers
         // <modules>
         //   <remove name = "WebDAVModule" />
         // </ modules >
-        [Authorize]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpDelete("{entityName}/{entityId}")]
         public ActionResult SoftDelete(string entityName, int entityId)
         {
@@ -78,7 +78,7 @@ namespace Clifton.Controllers
         // <modules>
         //   <remove name = "WebDAVModule" />
         // </ modules >
-        [Authorize]
+        [Authorize(Policy = Constants.ENTITY_AUTHORIZATION_SCHEME)]
         [HttpDelete("{entityName}/{entityId}/Hard")]
         public ActionResult HardDelete(string entityName, int entityId)
         {

@@ -72,9 +72,6 @@ namespace Clifton.Services
 
         public bool IsEntityValid(string entityName)
         {
-            // Get tables in the DB, not tables listed in the Entity table.
-            // SELECT * FROM INFORMATION_SCHEMA.TABLES 
-
             var recs = GetAll("TABLES", Conditions.Where().Field("TABLE_NAME").Is(entityName), hasDeleted: false, schema: "INFORMATION_SCHEMA");
 
             return recs.Any();
@@ -109,7 +106,8 @@ namespace Clifton.Services
                 (m => m == "GET", _ => data.Any(d => d.CanRead)),
                 (m => m == "POST", _ => data.Any(d => d.CanCreate)),
                 (m => m == "PATCH", _ => data.Any(d => d.CanUpdate)),
-                (m => m == "DELETE", _ => data.Any(d => d.CanDelete)));
+                (m => m == "DELETE", _ => data.Any(d => d.CanDelete)),
+                (_ => true, _ => false));   // anything else
 
             return ok;
         }

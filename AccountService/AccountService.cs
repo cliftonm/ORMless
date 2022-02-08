@@ -32,11 +32,7 @@ namespace Clifton.Services
             if (user != null)
             {
                 var ts = GetEpoch();
-                user.AccessToken = Guid.NewGuid().ToString();
-                user.RefreshToken = Guid.NewGuid().ToString();
-                user.ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
-                user.ExpiresOn = ts + user.ExpiresIn;
-                user.LastLogin = DateTime.Now;
+                user.Login(ts);
                 context.SaveChanges();
                 response = user.CreateMapped<LoginResponse>();
             }
@@ -58,11 +54,7 @@ namespace Clifton.Services
                 // Refresh token expires 90 days after when user logged in, thus ExpiresOn + (90 - 1) days
                 if (user.ExpiresOn + (Constants.REFRESH_VALID_DAYS - 1) * Constants.ONE_DAY_IN_SECONDS > ts)
                 {
-                    user.AccessToken = Guid.NewGuid().ToString();
-                    user.RefreshToken = Guid.NewGuid().ToString();  // Valid for 90 days
-                    user.ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
-                    user.ExpiresOn = ts + user.ExpiresIn;
-                    user.LastLogin = DateTime.Now;
+                    user.Login(ts);
                     context.SaveChanges();
                     response = user.CreateMapped<LoginResponse>();
                 }

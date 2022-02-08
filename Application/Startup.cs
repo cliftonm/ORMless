@@ -61,7 +61,7 @@ namespace Demo
                 .AddScheme<TokenAuthenticationSchemeOptions, TokenAuthenticationService>("tokenAuth", ops => { });
 
             services
-                .AddAuthorization(options => options.AddPolicy("entityAuthorization", policy =>
+                .AddAuthorization(options => options.AddPolicy(Constants.ENTITY_AUTHORIZATION_SCHEME, policy =>
                 {
                     policy.RequireAuthenticatedUser();
                     policy.Requirements.Add(new UserHasEntityPermission());

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
+using Lib;
+
 namespace Models
 {
     public class User
@@ -18,6 +20,15 @@ namespace Models
         public int? ExpiresIn { get; set; }
         public long? ExpiresOn { get; set; }
         public bool Deleted { get; set; }
+
+        public void Login(long ts)
+        {
+            AccessToken = Guid.NewGuid().ToString();
+            RefreshToken = Guid.NewGuid().ToString();
+            ExpiresIn = Constants.ONE_DAY_IN_SECONDS;
+            ExpiresOn = ts + ExpiresIn;
+            LastLogin = DateTime.Now;
+        }
 
         public void Logout()
         {

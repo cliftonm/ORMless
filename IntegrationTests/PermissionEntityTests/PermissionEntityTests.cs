@@ -63,7 +63,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanCreate = true })
                 .Login("Marc", "fizbin")
                 .Post<Test>("entity/test2", testData)
                 .AndForbidden();
@@ -75,7 +75,7 @@ namespace IntegrationTests.PermissionEntityTests
             ClearAllTables();
 
             var wp = new WorkflowPacket(URL)
-                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanRead = true })
+                .CreateUserAndEntityRole("Test", "Marc", "fizbin", "CreateEntityRole", new Permissions() { CanCreate = true })
                 .Post<Test>("entity/test2", testData)
                 .AndForbidden();
         }
